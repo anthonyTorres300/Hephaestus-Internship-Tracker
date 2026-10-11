@@ -1,0 +1,135 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-manrope);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-marcellus);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --radius: 0.5rem;
+}
+
+/* Dark-only. Marble white on near-black, antique gold and Aegean blue accents. */
+.dark {
+  --background: oklch(0.12 0.006 250);
+  --foreground: oklch(0.95 0.006 85);
+  --card: oklch(0.17 0.008 250);
+  --card-foreground: oklch(0.95 0.006 85);
+  --popover: oklch(0.2 0.01 250);
+  --popover-foreground: oklch(0.95 0.006 85);
+  --primary: oklch(0.8 0.115 85);
+  --primary-foreground: oklch(0.16 0.02 85);
+  --secondary: oklch(0.24 0.012 250);
+  --secondary-foreground: oklch(0.95 0.006 85);
+  --muted: oklch(0.22 0.01 250);
+  --muted-foreground: oklch(0.72 0.012 250);
+  --accent: oklch(0.28 0.03 250);
+  --accent-foreground: oklch(0.97 0.006 85);
+  --destructive: oklch(0.7 0.18 25);
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.8 0.115 85);
+  --chart-1: oklch(0.8 0.115 85);
+  --chart-2: oklch(0.72 0.1 235);
+  --chart-3: oklch(0.78 0.1 160);
+  --chart-4: oklch(0.7 0.15 30);
+  --chart-5: oklch(0.75 0.06 300);
+  --sidebar: oklch(0.14 0.006 250);
+  --sidebar-foreground: oklch(0.95 0.006 85);
+  --sidebar-primary: oklch(0.8 0.115 85);
+  --sidebar-primary-foreground: oklch(0.16 0.02 85);
+  --sidebar-accent: oklch(0.25 0.02 250);
+  --sidebar-accent-foreground: oklch(0.97 0.006 85);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.8 0.115 85);
+  color-scheme: dark;
+  --viz-1: #5fa8e8;
+  --viz-grid: rgb(255 255 255 / 0.08);
+  --viz-axis: #c4c8cf;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  h1,
+  h2,
+  h3,
+  [data-slot="card-title"] {
+    font-family: var(--font-heading), Georgia, serif;
+    font-weight: 400;
+    font-synthesis: none;
+    letter-spacing: 0.02em;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-slot="card"] {
+    transition:
+      transform 0.18s ease,
+      box-shadow 0.18s ease;
+  }
+  a[data-slot="card"]:hover,
+  [data-slot="card"].lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px -14px oklch(0.7 0.17 58 / 0.5);
+  }
+}
+
+/* Greek key (meander) strip: a quiet gold border motif. */
+.meander {
+  height: 10px;
+  opacity: 0.5;
+  background-repeat: repeat-x;
+  background-position: left center;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='10' viewBox='0 0 20 10'%3E%3Cpath d='M0 9.5H20M2 9.5V0.5H15V7H7V3.5H11' fill='none' stroke='%23d9b866' stroke-width='1'/%3E%3C/svg%3E");
+}

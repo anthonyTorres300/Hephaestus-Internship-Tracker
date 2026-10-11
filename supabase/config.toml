@@ -1,0 +1,32 @@
+# Local Supabase stack (supabase start). Production auth settings are configured in the dashboard; keep them aligned with this file.
+project_id = "internship-command-center"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+
+[db]
+port = 54322
+major_version = 17
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/callback"]
+jwt_expiry = 3600
+enable_signup = true            # set false for the closed pilot; must match REGISTRATION_MODE
+enable_anonymous_sign_ins = false
+minimum_password_length = 10
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true     # verified email is required before any workspace access
+secure_password_change = true
+max_frequency = "60s"
+otp_expiry = 3600
+
+[storage]
+enabled = true
+file_size_limit = "10MiB"

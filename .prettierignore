@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+coverage
+package-lock.json
+PRD.md
+AGENTS.md
+tests/fixtures
+supabase/migrations
+playwright-report
+test-results
+public

@@ -1,0 +1,40 @@
+name: discovery
+
+on:
+  schedule:
+    - cron: "17 10 * * *"
+  workflow_dispatch:
+    inputs:
+      correlation_id:
+        description: "Correlation UUID for this run (set by the app's manual refresh)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: discovery
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Run discovery
+        run: npx tsx scripts/discovery.ts
+        env:
+          DISCOVERY_DATABASE_URL: ${{ secrets.DISCOVERY_DATABASE_URL }}
+          DISCOVERY_DATABASE_CA: ${{ secrets.DISCOVERY_DATABASE_CA }}
+          DISCOVERY_TRIGGER: ${{ github.event_name == 'workflow_dispatch' && 'manual' || 'schedule' }}
+          DISCOVERY_CORRELATION_ID: ${{ inputs.correlation_id }}
+          GITHUB_TOKEN: ${{ github.token }}
