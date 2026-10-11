@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { BrandMark } from "@/components/layout/brand";
+import { NavProgress } from "@/components/layout/nav-progress";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -143,6 +144,7 @@ export function AppShell({
   const [open, setOpen] = useState(false);
   return (
     <div className="min-h-screen">
+      <NavProgress />
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 md:px-8">
           <Brand />

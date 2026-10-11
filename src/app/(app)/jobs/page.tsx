@@ -136,12 +136,6 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<Rec
             aria-label="Search listings"
             className="h-14 rounded-full bg-card pr-28 pl-14 text-lg ring-1 ring-white/10 [&::-webkit-search-cancel-button]:hidden"
           />
-          <kbd
-            className="pointer-events-none absolute top-1/2 right-28 hidden -translate-y-1/2 rounded border border-white/15 px-1.5 text-[11px] text-muted-foreground sm:block"
-            aria-hidden
-          >
-            /
-          </kbd>
           <Button type="submit" className="absolute top-1/2 right-2 h-10 -translate-y-1/2 rounded-full px-6 text-base">
             Search
           </Button>

@@ -41,14 +41,27 @@ export async function saveDecisionsAction(_: FormState, fd: FormData): Promise<F
       .eq("decision", "pending")
       .eq("errors", "[]")
       .eq("warnings", "[]");
+  } else if (op === "skip_duplicates") {
+    await supabase
+      .from("import_rows")
+      .update({ decision: "skip" })
+      .eq("batch_id", id)
+      .eq("decision", "pending")
+      .contains("warnings", [{ code: "possible_duplicate" }]);
   } else if (op === "skip_errors") {
     await supabase.from("import_rows").update({ decision: "skip" }).eq("batch_id", id).neq("errors", "[]");
   } else {
+    // One update per decision value instead of one per row.
+    const byDecision: Record<string, number[]> = { pending: [], accept: [], skip: [] };
     for (const [k, v] of fd.entries()) {
       const m = /^d:(\d+)$/.exec(k);
-      if (m && typeof v === "string" && ["pending", "accept", "skip"].includes(v))
-        await supabase.from("import_rows").update({ decision: v }).eq("batch_id", id).eq("ordinal", Number(m[1]));
+      if (m && typeof v === "string" && v in byDecision) byDecision[v].push(Number(m[1]));
     }
+    await Promise.all(
+      Object.entries(byDecision)
+        .filter(([, ords]) => ords.length)
+        .map(([decision, ords]) => supabase.from("import_rows").update({ decision }).eq("batch_id", id).in("ordinal", ords)),
+    );
   }
   revalidatePath(`/applications/import/${id}`);
   return { status: "ok", message: "Saved." };

@@ -417,3 +417,43 @@ describe("practice quotas and ownership", () => {
     ).toMatch(/check/);
   });
 });
+
+describe("custom seasons", () => {
+  let other: string;
+  beforeAll(async () => {
+    other = await createUser(db, "other-seasons@example.test");
+  });
+  const asU = <T = any>(sql: string, params: unknown[] = [], uid = u) => as(db, { uid }, async () => (await db.query<T>(sql, params)).rows);
+
+  it("accepts any season name on an application and counts it per season", async () => {
+    await create({ company_name: "A", season: "summer", season_year: 2026 });
+    await create({ company_name: "B", season: "co-op", season_year: 2026 });
+    await create({ company_name: "C", season: "co-op", season_year: 2026 });
+    const rows = await asU<any>(
+      "select season, season_year, n from public.application_season_counts where season_year = 2026 order by season",
+    );
+    expect(rows).toEqual([
+      { season: "co-op", season_year: 2026, n: 2 },
+      { season: "summer", season_year: 2026, n: 1 },
+    ]);
+  });
+
+  it("keeps seasons private to their owner and rejects bad names", async () => {
+    await asU("insert into public.user_seasons (user_id, name, year) values ($1, 'fall', 2030)", [u]);
+    expect((await asU<any>("select name from public.user_seasons where name = 'fall'", [], other)).length).toBe(0);
+    expect(await rejects(asU("insert into public.user_seasons (user_id, name, year) values ($1, 'Fall', 2030)", [u]))).toMatch(
+      /check|violates/,
+    );
+    expect(await rejects(asU("insert into public.user_seasons (user_id, name, year) values ($1, 'x', 2030)", [other], u))).toMatch(
+      /row-level security/,
+    );
+  });
+
+  it("caps custom seasons at 40 per account", async () => {
+    for (let y = 2031; y < 2031 + 39; y++)
+      await asU("insert into public.user_seasons (user_id, name, year) values ($1, 'cap', $2)", [u, y]);
+    expect(await rejects(asU("insert into public.user_seasons (user_id, name, year) values ($1, 'cap', 2099)", [u]))).toMatch(
+      /quota_exceeded/,
+    );
+  });
+});

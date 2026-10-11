@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireWorkspace } from "@/lib/auth/session";
 import { getApplicationDetail } from "@/lib/data/applications";
+import { seasonLabel } from "@/lib/ui/format";
+import { loadSeasons } from "@/lib/data/seasons";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +25,10 @@ export default async function ApplicationDetail({ params }: { params: Promise<{ 
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const { supabase, profile } = await requireWorkspace();
-  const d = await getApplicationDetail(supabase, id);
+  const [d, seasons] = await Promise.all([
+    getApplicationDetail(supabase, id),
+    loadSeasons(supabase, { season: profile.target_season, year: profile.target_year }),
+  ]);
   if (!d) notFound();
   const { app, events, notes, interviews, offers, tasks, job } = d;
   const now = new Date();
@@ -45,7 +50,7 @@ export default async function ApplicationDetail({ params }: { params: Promise<{ 
     <>
       <PageHeader
         title={`${app.company_name} — ${app.role_title}`}
-        description={`${submissionLabel(app)} · Priority ${app.priority}${app.season_year ? ` · ${app.season ?? ""} ${app.season_year}` : ""}`}
+        description={`${submissionLabel(app)} · Priority ${app.priority}${app.season_year ? ` · ${seasonLabel(app.season, app.season_year)}` : ""}`}
         actions={
           <>
             <StatusBadge status={app.status} />
@@ -128,6 +133,8 @@ export default async function ApplicationDetail({ params }: { params: Promise<{ 
                     <div className="mt-4">
                       <ApplicationForm
                         mode="edit"
+                        seasons={seasons.tabs.map((t) => ({ key: t.key, label: t.label }))}
+                        defaultYear={profile.target_year}
                         initial={{ ...app, locations: Array.isArray(app.locations) ? (app.locations as string[]) : [] }}
                       />
                     </div>

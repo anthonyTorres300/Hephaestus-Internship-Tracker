@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { FormAlert, NativeSelect, SubmitButton, type FormState } from "@/components/forms/fields";
 import { STATUSES, STATUS_LABEL } from "@/lib/domain";
 import { restageAction, saveDecisionsAction, undoBatchAction } from "../actions";
@@ -65,6 +66,9 @@ export function RowsForm({ batchId, children }: { batchId: string; children: Rea
         <Button type="submit" name="op" value="accept_clean" variant="outline" size="sm">
           Accept all rows with no issues
         </Button>
+        <Button type="submit" name="op" value="skip_duplicates" variant="outline" size="sm">
+          Skip possible duplicates
+        </Button>
         <Button type="submit" name="op" value="skip_errors" variant="outline" size="sm">
           Skip all rows with errors
         </Button>
@@ -116,7 +120,13 @@ export function CommitPanel({ batchId, ready, pendingNote }: { batchId: string; 
       </p>
       <div>
         <Button onClick={commit} disabled={!ready || busy}>
-          {busy ? "Committing…" : "Commit import"}
+          {busy ? (
+            <>
+              <Spinner /> Committing…
+            </>
+          ) : (
+            "Commit import"
+          )}
         </Button>
       </div>
     </div>

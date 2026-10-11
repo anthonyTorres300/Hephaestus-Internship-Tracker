@@ -2,7 +2,6 @@ import { z } from "zod";
 import { STATUSES, PRIORITIES, isSubmittedStatus, type Status } from "@/lib/domain";
 import { checkbox, optInt, optText, optionalUrl, reqText, splitList } from "./common";
 
-const SEASONS = ["summer", "fall", "winter", "spring"] as const;
 const WORK_MODES = ["onsite", "hybrid", "remote", "unknown"] as const;
 const emptyToUndef = (v: unknown) => (v === "" || v == null ? undefined : v);
 
@@ -51,7 +50,17 @@ export const applicationBase = z.object({
   requisition_id: optText(100),
   work_mode: z.preprocess(emptyToUndef, z.enum(WORK_MODES).optional()),
   role_category: optText(60),
-  season: z.preprocess(emptyToUndef, z.enum(SEASONS).optional()),
+  // Free text so users can define their own seasons ("co-op", "spring semester"); stored lowercase with single spaces.
+  season: z.preprocess(
+    emptyToUndef,
+    z
+      .string()
+      .trim()
+      .max(30, "Use 30 characters or fewer.")
+      .regex(/^[^\x00-\x1f]+$/, "Use plain text.")
+      .transform((v) => v.toLowerCase().replace(/\s+/g, " "))
+      .optional(),
+  ),
   season_year: optInt(2000, 2100),
   locations: z.preprocess((v) => splitList(typeof v === "string" ? v : ""), z.array(z.string().max(100)).max(20)),
   contact_channel: optText(300),

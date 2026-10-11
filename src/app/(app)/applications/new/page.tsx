@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { requireWorkspace } from "@/lib/auth/session";
+import { loadSeasons } from "@/lib/data/seasons";
 import { PageHeader } from "@/components/layout/page-header";
 import { ApplicationForm, type FormInitial } from "../application-form";
 
@@ -8,6 +9,7 @@ export const metadata = { title: "New application" };
 export default async function NewApplication({ searchParams }: { searchParams: Promise<{ job?: string }> }) {
   const { supabase, profile } = await requireWorkspace();
   const sp = await searchParams;
+  const seasons = await loadSeasons(supabase, { season: profile.target_season, year: profile.target_year });
 
   let initial: FormInitial = {
     status: "prepared",
@@ -43,7 +45,13 @@ export default async function NewApplication({ searchParams }: { searchParams: P
         description="Saving or preparing a role does not count as submitted. You will attest to submission separately."
       />
       <div className="max-w-3xl">
-        <ApplicationForm mode="create" initial={initial} idem={randomUUID()} />
+        <ApplicationForm
+          mode="create"
+          initial={initial}
+          idem={randomUUID()}
+          seasons={seasons.tabs.map((t) => ({ key: t.key, label: t.label }))}
+          defaultYear={profile.target_year}
+        />
       </div>
     </>
   );

@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { AlertCircle, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +24,13 @@ export function SubmitButton({
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending || props.disabled} aria-disabled={pending} {...props}>
-      {pending ? pendingText : children}
+      {pending ? (
+        <>
+          <Spinner /> {pendingText}
+        </>
+      ) : (
+        children
+      )}
     </Button>
   );
 }

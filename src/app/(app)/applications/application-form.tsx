@@ -12,6 +12,8 @@ import {
   type FormState,
 } from "@/components/forms/fields";
 import { STATUSES, STATUS_LABEL, isSubmittedStatus, type Status } from "@/lib/domain";
+import { seasonKey } from "@/lib/data/seasons";
+import { seasonLabel } from "@/lib/ui/format";
 import { createApplicationAction, updateApplicationAction } from "./actions";
 
 export interface FormInitial {
@@ -67,7 +69,93 @@ export function SubmissionFields({ state, initial }: { state?: FormState; initia
   );
 }
 
-export function ApplicationForm({ mode, initial, idem }: { mode: "create" | "edit"; initial?: FormInitial; idem?: string }) {
+export interface SeasonOption {
+  key: string;
+  label: string;
+}
+
+const NEW_SEASON = "__new";
+
+// Pick one of the user's seasons, leave it unclassified, or type a new one. Posts `season` + `season_year` either way.
+function SeasonPicker({
+  seasons,
+  initial,
+  state,
+  defaultYear,
+}: {
+  seasons: SeasonOption[];
+  initial?: FormInitial;
+  state: FormState;
+  defaultYear: number;
+}) {
+  const initialKey = initial?.season && initial?.season_year ? seasonKey(initial.season, initial.season_year) : "";
+  const options =
+    initialKey && !seasons.some((s) => s.key === initialKey)
+      ? [...seasons, { key: initialKey, label: seasonLabel(initial?.season, initial?.season_year) }]
+      : seasons;
+  const [pick, setPick] = useState(initialKey);
+  const i = pick.lastIndexOf(":");
+  const known = pick && pick !== NEW_SEASON;
+  return (
+    <>
+      <Field
+        label="Season"
+        name="season_pick"
+        hint={pick === NEW_SEASON ? undefined : "Create seasons from the tabs on the Applications page, or choose New season."}
+      >
+        <NativeSelect id="f-season_pick" value={pick} onChange={(e) => setPick(e.target.value)}>
+          <option value="">Unclassified</option>
+          {options.map((o) => (
+            <option key={o.key} value={o.key}>
+              {o.label}
+            </option>
+          ))}
+          <option value={NEW_SEASON}>+ New season…</option>
+        </NativeSelect>
+      </Field>
+      {pick === NEW_SEASON ? (
+        <>
+          <TextField
+            label="Season name"
+            name="season"
+            state={state}
+            maxLength={30}
+            placeholder="e.g. Summer, Co-op"
+            defaultValue={state.values?.season ?? ""}
+          />
+          <TextField
+            label="Season year"
+            name="season_year"
+            type="number"
+            min={2000}
+            max={2100}
+            state={state}
+            defaultValue={state.values?.season_year ?? String(defaultYear)}
+          />
+        </>
+      ) : (
+        <>
+          <input type="hidden" name="season" value={known ? pick.slice(0, i) : ""} />
+          <input type="hidden" name="season_year" value={known ? pick.slice(i + 1) : ""} />
+        </>
+      )}
+    </>
+  );
+}
+
+export function ApplicationForm({
+  mode,
+  initial,
+  idem,
+  seasons = [],
+  defaultYear = new Date().getFullYear() + 1,
+}: {
+  mode: "create" | "edit";
+  initial?: FormInitial;
+  idem?: string;
+  seasons?: SeasonOption[];
+  defaultYear?: number;
+}) {
   const [state, action] = useActionState<FormState, FormData>(mode === "create" ? createApplicationAction : updateApplicationAction, {});
   const [status, setStatus] = useState<Status>((state.values?.status as Status) ?? initial?.status ?? "prepared");
   const submitted = isSubmittedStatus(status);
@@ -176,28 +264,7 @@ export function ApplicationForm({ mode, initial, idem }: { mode: "create" | "edi
               defaultValue={v("role_category")}
               placeholder="e.g. backend, data, ai_ml"
             />
-            <SelectField
-              label="Target season"
-              name="season"
-              state={state}
-              placeholder="Unknown"
-              defaultValue={v("season")}
-              options={[
-                { value: "summer", label: "Summer" },
-                { value: "fall", label: "Fall" },
-                { value: "winter", label: "Winter" },
-                { value: "spring", label: "Spring" },
-              ]}
-            />
-            <TextField
-              label="Target year"
-              name="season_year"
-              type="number"
-              min={2000}
-              max={2100}
-              state={state}
-              defaultValue={v("season_year")}
-            />
+            <SeasonPicker seasons={seasons} initial={initial} state={state} defaultYear={defaultYear} />
             <TextField
               label="Contact / channel"
               name="contact_channel"
@@ -265,28 +332,7 @@ export function ApplicationForm({ mode, initial, idem }: { mode: "create" | "edi
             defaultValue={v("role_category")}
             placeholder="e.g. backend, data, ai_ml"
           />
-          <SelectField
-            label="Target season"
-            name="season"
-            state={state}
-            placeholder="Unknown"
-            defaultValue={v("season")}
-            options={[
-              { value: "summer", label: "Summer" },
-              { value: "fall", label: "Fall" },
-              { value: "winter", label: "Winter" },
-              { value: "spring", label: "Spring" },
-            ]}
-          />
-          <TextField
-            label="Target year"
-            name="season_year"
-            type="number"
-            min={2000}
-            max={2100}
-            state={state}
-            defaultValue={v("season_year")}
-          />
+          <SeasonPicker seasons={seasons} initial={initial} state={state} defaultYear={defaultYear} />
           <TextField
             label="Contact / channel"
             name="contact_channel"

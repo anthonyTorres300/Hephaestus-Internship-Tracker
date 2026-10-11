@@ -1,18 +1,20 @@
 import Link from "next/link";
+import { Search, SlidersHorizontal } from "lucide-react";
 import { requireWorkspace } from "@/lib/auth/session";
-import { listApplications, listForBoard, parseFilters, seasonCounts, PAGE_SIZE } from "@/lib/data/applications";
+import { listApplications, listForBoard, parseFilters, PAGE_SIZE, PAGE_SIZES } from "@/lib/data/applications";
 import { PageHeader, EmptyState } from "@/components/layout/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NativeSelect } from "@/components/forms/fields";
-import { StatusBadge } from "@/components/shared/status-badge";
 import { STATUSES, STATUS_LABEL } from "@/lib/domain";
 import { seasonLabel, submissionLabel } from "@/lib/ui/format";
 import { cn } from "@/lib/utils";
 import { KanbanBoard } from "./kanban-board";
+import { ApplicationsList } from "./applications-list";
+import { loadSeasons, seasonKey } from "@/lib/data/seasons";
+import { SeasonTabs } from "./season-tabs";
+import { AutoSubmitForm } from "@/components/forms/auto-submit-form";
 import { MoreMenu } from "@/components/layout/more-menu";
 
 export const metadata = { title: "Applications" };
@@ -20,13 +22,13 @@ export const metadata = { title: "Applications" };
 export default async function Applications({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { supabase, profile } = await requireWorkspace();
   const sp = await searchParams;
-  const f = parseFilters(sp, profile.target_year);
+  const f = parseFilters(sp, seasonKey(profile.target_season, profile.target_year));
   const board = (Array.isArray(sp.layout) ? sp.layout[0] : sp.layout) === "board" && f.view === "active";
-  const [{ rows, total, page }, counts] = await Promise.all([
+  const [{ rows, total, page }, seasons] = await Promise.all([
     board ? listForBoard(supabase, f) : listApplications(supabase, f),
-    seasonCounts(supabase, profile.target_year),
+    loadSeasons(supabase, { season: profile.target_season, year: profile.target_year }),
   ]);
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pages = Math.max(1, Math.ceil(total / (f.per ?? PAGE_SIZE)));
 
   const qs = (over: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
@@ -40,6 +42,7 @@ export default async function Applications({ searchParams }: { searchParams: Pro
       to: f.to,
       sort: f.sort,
       dir: f.dir,
+      per: f.per === PAGE_SIZE ? undefined : String(f.per),
       view: f.view === "active" ? undefined : f.view,
       layout: board ? "board" : undefined,
       ...over,
@@ -48,15 +51,29 @@ export default async function Applications({ searchParams }: { searchParams: Pro
     return `/applications?${p.toString()}`;
   };
 
-  const seasonTabs = [
-    {
-      value: String(profile.target_year),
-      label: `${profile.target_season[0].toUpperCase()}${profile.target_season.slice(1)} ${profile.target_year}`,
-      n: counts.current,
-    },
-    { value: "unclassified", label: "Unclassified season", n: counts.unclassified },
-    { value: "all", label: "All history", n: counts.all },
+  // Clicking the active sort flips its direction; a new sort starts high-priority/earliest-stage first, or newest first for dates.
+  const sortOptions = [
+    { key: "company_name", label: "Company", first: "asc" },
+    { key: "status", label: "Status", first: "asc" },
+    { key: "submitted_key", label: "Date submitted", first: "desc" },
+    { key: "priority", label: "Priority", first: "asc" },
+  ] as const;
+  const sortHref = (key: string, first: "asc" | "desc") =>
+    qs({ sort: key, dir: f.sort === key ? (f.dir === "asc" ? "desc" : "asc") : first, page: undefined });
+
+  const targetKey = seasonKey(profile.target_season, profile.target_year);
+  const tabItems = [
+    ...seasons.tabs.map((t) => ({
+      key: t.key,
+      label: t.label,
+      n: t.n,
+      href: qs({ season: t.key, page: undefined }),
+      remove: t.removable ? { name: t.name, year: t.year } : undefined,
+    })),
+    { key: "unclassified", label: "Unclassified", n: seasons.unclassified, href: qs({ season: "unclassified", page: undefined }) },
+    { key: "all", label: "All history", n: seasons.all, href: qs({ season: "all", page: undefined }) },
   ];
+  const advancedCount = [f.priority, f.location, f.from, f.to].filter(Boolean).length;
 
   return (
     <>
@@ -87,16 +104,13 @@ export default async function Applications({ searchParams }: { searchParams: Pro
       />
 
       <nav aria-label="Season view" className="mb-4 flex flex-wrap gap-2">
-        {seasonTabs.map((t) => (
-          <Link
-            key={t.value}
-            href={qs({ season: t.value, page: undefined })}
-            aria-current={f.season === t.value ? "page" : undefined}
-            className={cn(buttonVariants({ variant: f.season === t.value ? "default" : "outline", size: "sm" }))}
-          >
-            {t.label} ({t.n})
-          </Link>
-        ))}
+        <SeasonTabs
+          items={tabItems}
+          current={f.season ?? targetKey}
+          newHref={qs({ season: "__SEASON__", page: undefined })}
+          fallbackHref={qs({ season: targetKey, page: undefined })}
+          defaultYear={profile.target_year}
+        />
         <span className="ml-auto flex gap-1 rounded-md bg-white/5 p-1" role="group" aria-label="Layout">
           {(["list", "board"] as const).map((l) => (
             <Link
@@ -123,24 +137,32 @@ export default async function Applications({ searchParams }: { searchParams: Pro
         </p>
       ) : null}
 
-      <form
-        method="get"
-        className="mb-5 grid gap-3 rounded-lg bg-card p-4 ring-1 ring-white/10"
-        role="search"
-        aria-label="Filter applications"
-      >
+      <AutoSubmitForm method="get" role="search" aria-label="Filter applications" className="mb-5 grid gap-3">
         <input type="hidden" name="season" value={f.season} />
+        <input type="hidden" name="sort" value={f.sort} />
+        <input type="hidden" name="dir" value={f.dir} />
+        {f.per !== PAGE_SIZE ? <input type="hidden" name="per" value={f.per} /> : null}
         {f.view !== "active" ? <input type="hidden" name="view" value={f.view} /> : null}
         {board ? <input type="hidden" name="layout" value="board" /> : null}
-        <div className="flex flex-wrap gap-2">
+        <input id="apps-filters-toggle" type="checkbox" className="peer sr-only" defaultChecked={advancedCount > 0} />
+
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-5 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
             name="q"
+            type="search"
             defaultValue={f.q}
-            placeholder="Search company or title   ( / )"
-            aria-label="Search company or title"
-            className="h-10 min-w-48 flex-1"
+            placeholder="Search company or role"
+            aria-label="Search applications"
+            className="h-14 rounded-full bg-card pr-28 pl-14 text-lg ring-1 ring-white/10 [&::-webkit-search-cancel-button]:hidden"
           />
-          <NativeSelect name="status" defaultValue={f.status ?? ""} aria-label="Status" className="h-10 w-44">
+          <Button type="submit" className="absolute top-1/2 right-2 h-10 -translate-y-1/2 rounded-full px-6 text-base">
+            Search
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <NativeSelect name="status" defaultValue={f.status ?? ""} aria-label="Status" className="h-9 w-40 rounded-full">
             <option value="">Any status</option>
             {STATUSES.map((s) => (
               <option key={s} value={s}>
@@ -148,60 +170,57 @@ export default async function Applications({ searchParams }: { searchParams: Pro
               </option>
             ))}
           </NativeSelect>
-          <Button type="submit" className="h-10 px-5">
-            Search
-          </Button>
-        </div>
-        <details open={Boolean(f.priority || f.location || f.from || f.to)} className="text-sm">
-          <summary className="cursor-pointer text-muted-foreground">More filters and sorting</summary>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <label className="grid gap-1 text-xs text-muted-foreground">
-              Priority
-              <NativeSelect name="priority" defaultValue={f.priority ?? ""}>
-                <option value="">Any</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </NativeSelect>
-            </label>
-            <label className="grid gap-1 text-xs text-muted-foreground">
-              Location
-              <Input name="location" defaultValue={f.location} />
-            </label>
-            <label className="grid gap-1 text-xs text-muted-foreground">
-              Submitted from
-              <Input name="from" type="month" defaultValue={f.from} />
-            </label>
-            <label className="grid gap-1 text-xs text-muted-foreground">
-              Submitted to
-              <Input name="to" type="month" defaultValue={f.to} />
-            </label>
-            <label className="grid gap-1 text-xs text-muted-foreground">
-              Sort by
-              <NativeSelect name="sort" defaultValue={f.sort}>
-                <option value="updated_at">Last updated</option>
-                <option value="created_at">Created</option>
-                <option value="company_name">Company</option>
-                <option value="submitted_key">Submission date</option>
-                <option value="status">Status</option>
-                <option value="priority">Priority</option>
-              </NativeSelect>
-            </label>
-            <label className="grid gap-1 text-xs text-muted-foreground">
-              Order
-              <NativeSelect name="dir" defaultValue={f.dir}>
-                <option value="desc">Newest first</option>
-                <option value="asc">Oldest first</option>
-              </NativeSelect>
-            </label>
-          </div>
-          <div className="mt-3">
-            <Link href="/applications" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-              Reset filters
+          <label
+            htmlFor="apps-filters-toggle"
+            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-sm text-muted-foreground ring-1 ring-white/10 transition-colors hover:text-foreground peer-checked:bg-white/10 peer-checked:text-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring"
+          >
+            <SlidersHorizontal className="size-4" aria-hidden /> Filters
+            {advancedCount > 0 ? (
+              <span className="rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">{advancedCount}</span>
+            ) : null}
+          </label>
+          {f.q || f.status || advancedCount > 0 ? (
+            <Link
+              href={qs({
+                q: undefined,
+                status: undefined,
+                priority: undefined,
+                location: undefined,
+                from: undefined,
+                to: undefined,
+                page: undefined,
+              })}
+              className="ml-auto text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            >
+              Clear all
             </Link>
-          </div>
-        </details>
-      </form>
+          ) : null}
+        </div>
+
+        <div className="hidden gap-3 rounded-lg bg-card p-4 ring-1 ring-white/10 peer-checked:grid sm:grid-cols-2 lg:grid-cols-4">
+          <label className="grid gap-1 text-xs text-muted-foreground">
+            Priority
+            <NativeSelect name="priority" defaultValue={f.priority ?? ""}>
+              <option value="">Any</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </NativeSelect>
+          </label>
+          <label className="grid gap-1 text-xs text-muted-foreground">
+            Location
+            <Input name="location" defaultValue={f.location} placeholder="Any" />
+          </label>
+          <label className="grid gap-1 text-xs text-muted-foreground">
+            Submitted from
+            <Input name="from" type="month" defaultValue={f.from} />
+          </label>
+          <label className="grid gap-1 text-xs text-muted-foreground">
+            Submitted to
+            <Input name="to" type="month" defaultValue={f.to} />
+          </label>
+        </div>
+      </AutoSubmitForm>
 
       {board && rows.length > 0 ? (
         <KanbanBoard
@@ -219,7 +238,7 @@ export default async function Applications({ searchParams }: { searchParams: Pro
         />
       ) : rows.length === 0 ? (
         <EmptyState
-          title={total === 0 && counts.all === 0 ? "No applications yet" : "No applications match these filters"}
+          title={total === 0 && seasons.all === 0 ? "No applications yet" : "No applications match these filters"}
           action={
             <span className="flex flex-wrap justify-center gap-2">
               <Link href="/applications/new" className={buttonVariants()}>
@@ -231,7 +250,7 @@ export default async function Applications({ searchParams }: { searchParams: Pro
             </span>
           }
         >
-          {counts.all === 0
+          {seasons.all === 0
             ? "Add one manually, or import your existing log from a CSV."
             : f.season !== "all"
               ? "Try “All history” or clear filters."
@@ -239,64 +258,42 @@ export default async function Applications({ searchParams }: { searchParams: Pro
         </EmptyState>
       ) : (
         <>
-          <p className="mb-2 text-sm text-muted-foreground" aria-live="polite">
-            {total} result{total === 1 ? "" : "s"} · page {page} of {pages}
-          </p>
-          <div className="hidden md:block">
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Company</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Submitted</TableHead>
-                      <TableHead>Priority</TableHead>
-                      <TableHead>Season</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.map((a) => (
-                      <TableRow key={a.id} className="relative cursor-pointer">
-                        <TableCell className="font-medium">
-                          <Link
-                            className="underline-offset-2 outline-none after:absolute after:inset-0 hover:underline focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
-                            href={`/applications/${a.id}`}
-                          >
-                            {a.company_name}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{a.role_title}</TableCell>
-                        <TableCell>
-                          <StatusBadge status={a.status} />
-                        </TableCell>
-                        <TableCell>{submissionLabel(a)}</TableCell>
-                        <TableCell className="capitalize">{a.priority}</TableCell>
-                        <TableCell>{a.season_year ? seasonLabel(a.season, a.season_year) : "Unclassified"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
-          <ul className="grid gap-3 md:hidden">
-            {rows.map((a) => (
-              <li key={a.id}>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+            <p aria-live="polite">
+              {total} result{total === 1 ? "" : "s"} · page {page} of {pages}
+            </p>
+            <nav aria-label="Rows per page" className="flex items-center gap-1">
+              Show
+              {PAGE_SIZES.map((n) => (
                 <Link
-                  href={`/applications/${a.id}`}
-                  className="grid gap-1 rounded-md border p-3 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                  key={n}
+                  href={qs({ per: n === PAGE_SIZE ? undefined : String(n), page: undefined })}
+                  aria-current={f.per === n ? "true" : undefined}
+                  className={buttonVariants({ variant: f.per === n ? "default" : "outline", size: "xs" })}
                 >
-                  <span className="font-medium">{a.company_name}</span>
-                  <span className="text-sm">{a.role_title}</span>
-                  <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <StatusBadge status={a.status} /> {submissionLabel(a)} · <span className="capitalize">{a.priority}</span> priority
-                  </span>
+                  {n}
                 </Link>
-              </li>
-            ))}
-          </ul>
+              ))}
+            </nav>
+          </div>
+          <ApplicationsList
+            key={JSON.stringify(sp)}
+            canBulk={f.view === "active"}
+            sort={f.sort ?? "updated_at"}
+            dir={f.dir ?? "desc"}
+            sortHrefs={Object.fromEntries(sortOptions.map((o) => [o.key, sortHref(o.key, o.first)]))}
+            seasons={seasons.tabs.map((t) => ({ key: t.key, label: t.label }))}
+            apps={rows.map((a) => ({
+              id: a.id,
+              status: a.status,
+              company_name: a.company_name,
+              url: a.application_url ?? a.portal_url,
+              role_title: a.role_title,
+              priority: a.priority,
+              sub: submissionLabel(a),
+              seasonText: a.season_year ? seasonLabel(a.season, a.season_year) : "Unclassified",
+            }))}
+          />
           <nav aria-label="Pagination" className="mt-4 flex items-center justify-between">
             {page > 1 ? (
               <Link className={buttonVariants({ variant: "outline" })} href={qs({ page: String(page - 1) })}>

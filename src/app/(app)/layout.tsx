@@ -1,4 +1,5 @@
 import { displayName } from "@/lib/auth/display-name";
+import { Suspense } from "react";
 import { ToastProvider } from "@/components/feedback/toast";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
@@ -14,14 +15,6 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isAdmin, profile, supabase } = await requireWorkspace();
-  // Listings older than 6 hours trigger a quiet background refresh (only when the server has the ingestion credentials).
-  const { data: health } = await supabase.from("feed_health").select("last_success_at");
-  const last = (health ?? [])
-    .map((h) => h.last_success_at)
-    .filter(Boolean)
-    .sort()
-    .at(-1) as string | undefined;
-  const staleForAuto = isStale(last) || (health ?? []).length < SOURCES.length;
   return (
     <ToastProvider>
       <AppShell
@@ -38,9 +31,24 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       >
         <TimezoneSync confirmed={profile.timezone_confirmed} />
         <Shortcuts />
-        <AutoRefresh stale={staleForAuto} configured={!!process.env.DISCOVERY_DATABASE_URL} />
+        <Suspense fallback={null}>
+          <AutoRefreshGate supabase={supabase} />
+        </Suspense>
         {children}
       </AppShell>
     </ToastProvider>
   );
+}
+
+// Listings older than 6 hours trigger a quiet background refresh (only when the server has the ingestion credentials).
+// Streamed in separately so this lookup never delays the page itself.
+async function AutoRefreshGate({ supabase }: { supabase: Awaited<ReturnType<typeof requireWorkspace>>["supabase"] }) {
+  const { data: health } = await supabase.from("feed_health").select("last_success_at");
+  const last = (health ?? [])
+    .map((h) => h.last_success_at)
+    .filter(Boolean)
+    .sort()
+    .at(-1) as string | undefined;
+  const stale = isStale(last) || (health ?? []).length < SOURCES.length;
+  return <AutoRefresh stale={stale} configured={!!process.env.DISCOVERY_DATABASE_URL} />;
 }

@@ -5,6 +5,7 @@ import { JOB_PREFS_COOKIE, parseJobPrefs } from "@/lib/jobs/prefs";
 import { requireWorkspace } from "@/lib/auth/session";
 import { fetchAll } from "@/lib/data/export";
 import { loadFeed } from "@/lib/jobs/feed";
+import { loadSeasons, parseSeasonKey, seasonKey } from "@/lib/data/seasons";
 import { loadPractice } from "@/lib/data/practice";
 import { CompanyLogo } from "@/components/shared/company-logo";
 import { PageHeader } from "@/components/layout/page-header";
@@ -30,7 +31,7 @@ import {
   type Cohort,
 } from "@/lib/domain";
 import type { Task } from "@/lib/data/types";
-import { fmtWeek, fmtDateOnly, fmtInstant, seasonLabel } from "@/lib/ui/format";
+import { fmtWeek, fmtDateOnly, fmtInstant } from "@/lib/ui/format";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Dashboard" };
@@ -43,7 +44,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const now = new Date();
   const tz = profile.timezone;
 
-  const [apps, offers, interviews, statusEvents, tasks, practice, feed, health] = await Promise.all([
+  const [apps, offers, interviews, statusEvents, tasks, practice, feed, health, seasons] = await Promise.all([
     fetchAll<AppRow & { company_name: string }>(supabase, "applications"),
     fetchAll<{ application_id: string }>(supabase, "offer_events"),
     fetchAll<{ application_id: string }>(supabase, "interview_events"),
@@ -63,15 +64,20 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       now,
     ),
     supabase.from("feed_health").select("repository, last_success_at, stale"),
+    loadSeasons(supabase, { season: profile.target_season, year: profile.target_year }),
   ]);
 
-  const seasonSel = sp.season ?? String(profile.target_year);
+  const targetKey = seasonKey(profile.target_season, profile.target_year);
+  const seasonSel = sp.season ?? targetKey;
+  const picked = parseSeasonKey(seasonSel);
   const cohort: Cohort =
     seasonSel === "all"
       ? { allHistory: true, includeUnclassified: true, includeArchived: true }
       : seasonSel === "unclassified"
         ? { allHistory: false, includeUnclassified: true, includeArchived: true, seasonYear: -1 }
-        : { allHistory: false, includeUnclassified: false, includeArchived: true, seasonYear: Number(seasonSel) || profile.target_year };
+        : picked
+          ? { allHistory: false, includeUnclassified: false, includeArchived: true, season: picked.name, seasonYear: picked.year }
+          : { allHistory: false, includeUnclassified: false, includeArchived: true, seasonYear: Number(seasonSel) || profile.target_year };
   const sel = cohortFilter(apps, cohort);
   // "unclassified" view shows only unclassified rows (cohort season -1 matches nothing classified).
   const cohortApps = sel.apps;
@@ -206,8 +212,17 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           apps.length > 0 ? (
             <>
               <AutoSubmitForm method="get" action="/dashboard">
-                <NativeSelect name="season" defaultValue={seasonSel} aria-label="Season view" className="h-9 w-48">
-                  <option value={String(profile.target_year)}>{seasonLabel(profile.target_season, profile.target_year)}</option>
+                <NativeSelect
+                  name="season"
+                  defaultValue={picked || ["all", "unclassified"].includes(seasonSel) ? seasonSel : targetKey}
+                  aria-label="Season view"
+                  className="h-9 w-48"
+                >
+                  {seasons.tabs.map((t) => (
+                    <option key={t.key} value={t.key}>
+                      {t.label}
+                    </option>
+                  ))}
                   <option value="unclassified">Unclassified season{sel.unclassified ? ` (${sel.unclassified})` : ""}</option>
                   <option value="all">All history</option>
                 </NativeSelect>

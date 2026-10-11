@@ -16,7 +16,8 @@ import {
   taskSchema,
   updateApplicationSchema,
 } from "@/lib/validation/application";
-import { isSubmittedStatus, isValidTimezone } from "@/lib/domain";
+import { PRIORITIES, STATUSES, STATUS_LABEL, isSubmittedStatus, isValidTimezone, type Status } from "@/lib/domain";
+import { normalizeSeasonName, seasonKey } from "@/lib/data/seasons";
 import type { FormState } from "@/components/forms/fields";
 
 const fail = (message: string, raw?: Record<string, string | string[]>, fields?: Record<string, string[]>): FormState => ({
@@ -347,4 +348,144 @@ export async function moveStatusAction(input: {
   revalidatePath("/dashboard");
   const row = data as { revision: number; status: string };
   return { ok: true, revision: row.revision, status: row.status };
+}
+
+export type BulkInput = {
+  ids: string[];
+  set: "status" | "priority" | "season" | "archive" | "trash";
+  value?: string;
+  year?: number;
+  reason?: string;
+  attested?: boolean;
+  date_known?: string;
+  submitted_day?: string;
+  submitted_month?: string;
+};
+export type BulkResult = { ok: true; changed: number; failed: number; message: string } | { ok: false; message: string };
+
+const BULK_MAX = 200;
+const uuidRe = /^[0-9a-f-]{36}$/i;
+
+// Bulk categorize: priority / season / archive / trash are plain updates; status goes through the same atomic RPC per application.
+export async function bulkUpdateAction(input: BulkInput): Promise<BulkResult> {
+  const { supabase } = await requireWorkspace();
+  const ids = [...new Set(input.ids)].filter((i) => uuidRe.test(i));
+  if (!ids.length) return { ok: false, message: "Select at least one application." };
+  if (ids.length > BULK_MAX) return { ok: false, message: `Select at most ${BULK_MAX} applications at a time.` };
+  const now = new Date().toISOString();
+  const touch = () => {
+    revalidatePath("/applications");
+    revalidatePath("/dashboard");
+  };
+
+  if (input.set === "priority" || input.set === "season" || input.set === "archive" || input.set === "trash") {
+    let patch: Record<string, unknown>;
+    if (input.set === "priority") {
+      if (!(PRIORITIES as readonly string[]).includes(input.value ?? "")) return { ok: false, message: "Choose a priority." };
+      patch = { priority: input.value };
+    } else if (input.set === "season") {
+      if (input.value === "none") patch = { season: null, season_year: null };
+      else {
+        const name = normalizeSeasonName(input.value ?? "");
+        if (!name) return { ok: false, message: "Enter a season name of up to 30 characters." };
+        input.value = name;
+        const y = Number(input.year);
+        if (!Number.isInteger(y) || y < 2000 || y > 2100) return { ok: false, message: "Enter a valid year." };
+        patch = { season: input.value, season_year: y };
+      }
+    } else patch = input.set === "archive" ? { archived_at: now } : { trashed_at: now };
+    const { data, error } = await supabase.from("applications").update(patch).in("id", ids).select("id");
+    if (error) return { ok: false, message: "Those changes could not be saved." };
+    touch();
+    const n = data?.length ?? 0;
+    return { ok: true, changed: n, failed: ids.length - n, message: `Updated ${n} application${n === 1 ? "" : "s"}.` };
+  }
+
+  if (!(STATUSES as readonly string[]).includes(input.value ?? "")) return { ok: false, message: "Choose a status." };
+  const to = input.value as Status;
+  let submitted: unknown = null;
+  let unknown = false;
+  if (isSubmittedStatus(to) && input.attested) {
+    const s = parseSubmission(input.date_known ?? "unknown", input.submitted_day, input.submitted_month);
+    if (s.error) return { ok: false, message: s.error };
+    unknown = s.value!.submission_date_unknown;
+    submitted = {
+      precision: s.value!.submitted_precision,
+      year: s.value!.submitted_year,
+      month: s.value!.submitted_month,
+      day: s.value!.submitted_day,
+    };
+  }
+  const { data: rows, error: readErr } = await supabase.from("applications").select("id, revision, status").in("id", ids);
+  if (readErr) return { ok: false, message: "Could not load the selected applications." };
+  let changed = 0;
+  let failed = 0;
+  const todo = (rows ?? []).filter((r) => r.status !== to);
+  for (let i = 0; i < todo.length; i += 8) {
+    const results = await Promise.all(
+      todo.slice(i, i + 8).map((r) =>
+        supabase.rpc("change_application_status", {
+          p_application_id: r.id,
+          p_expected_revision: r.revision,
+          p_new_status: to,
+          p_reason: input.reason?.trim() || null,
+          p_effective_at: null,
+          p_attested: input.attested === true,
+          p_submitted: submitted,
+          p_submission_unknown: unknown,
+          p_key: crypto.randomUUID(),
+        }),
+      ),
+    );
+    for (const r of results) {
+      if (r.error) failed++;
+      else changed++;
+    }
+  }
+  touch();
+  const skipped = (rows ?? []).length - todo.length;
+  const parts = [`Moved ${changed} to ${STATUS_LABEL[to]}.`];
+  if (skipped) parts.push(`${skipped} already had that status.`);
+  if (failed)
+    parts.push(
+      `${failed} could not be moved (a closed application needs a reason to reopen, and submitted ones cannot go back to Saved or Prepared).`,
+    );
+  return { ok: true, changed, failed, message: parts.join(" ") };
+}
+
+export type SeasonResult = { ok: true; key: string } | { ok: false; message: string };
+
+// Creates a season so it gets its own tab, even before any application uses it.
+export async function createSeasonAction(input: { name: string; year: number }): Promise<SeasonResult> {
+  const { supabase, user } = await requireWorkspace();
+  const name = normalizeSeasonName(input.name ?? "");
+  const year = Number(input.year);
+  if (!name) return { ok: false, message: "Enter a season name of up to 30 characters." };
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) return { ok: false, message: "Enter a year between 2000 and 2100." };
+  const { error } = await supabase
+    .from("user_seasons")
+    .upsert({ user_id: user.id, name, year }, { onConflict: "user_id,name,year", ignoreDuplicates: true });
+  if (error) {
+    const m = dbErrorStatus(error);
+    return { ok: false, message: m.status === 429 ? "You can have up to 40 custom seasons." : "Could not create the season." };
+  }
+  revalidatePath("/applications");
+  return { ok: true, key: seasonKey(name, year) };
+}
+
+// Removes an empty season's tab. Applications are never touched; the page only offers this when the season has none.
+export async function deleteSeasonAction(input: { name: string; year: number }): Promise<{ ok: boolean; message?: string }> {
+  const { supabase, user } = await requireWorkspace();
+  const { count } = await supabase
+    .from("applications")
+    .select("id", { count: "exact", head: true })
+    .eq("season", input.name)
+    .eq("season_year", input.year)
+    .is("trashed_at", null)
+    .is("archived_at", null);
+  if (count) return { ok: false, message: "This season still has applications. Move them to another season first." };
+  const { error } = await supabase.from("user_seasons").delete().eq("user_id", user.id).eq("name", input.name).eq("year", input.year);
+  if (error) return { ok: false, message: "Could not remove the season." };
+  revalidatePath("/applications");
+  return { ok: true };
 }

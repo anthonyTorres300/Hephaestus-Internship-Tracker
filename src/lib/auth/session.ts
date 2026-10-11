@@ -43,12 +43,14 @@ export const requireWorkspace = cache(async (): Promise<WorkspaceContext> => {
   const auth = await getAuth();
   if (!auth) redirect("/login");
   if (!auth.user.email_confirmed_at) redirect("/verify-email");
-  const state = await getAccountState();
-  if (state !== "active") redirect("/account-status");
-  const [{ data: profile }, { data: admin }] = await Promise.all([
+  // Independent lookups run together; a brand-new account's profile is re-read once ensure_account() has created it.
+  const [state, first, { data: admin }] = await Promise.all([
+    getAccountState(),
     auth.supabase.from("profiles").select("*").maybeSingle(),
     auth.supabase.rpc("is_admin"),
   ]);
+  if (state !== "active") redirect("/account-status");
+  const profile = first.data ?? (await auth.supabase.from("profiles").select("*").maybeSingle()).data;
   if (!profile) redirect("/account-status");
   return { ...auth, profile: profile as Profile, isAdmin: admin === true };
 });

@@ -1,13 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Application, InterviewEvent, Note, OfferEvent, StatusEvent, Task } from "@/lib/data/types";
 import { STATUSES } from "@/lib/domain";
+import { parseSeasonKey } from "@/lib/data/seasons";
 
 export const PAGE_SIZE = 25;
+export const PAGE_SIZES = [25, 50, 100, 200] as const;
 
 export interface AppFilters {
   q?: string;
   status?: string;
-  season?: string; // "<year>" | "unclassified" | "all"
+  season?: string; // "<name>:<year>" | "unclassified" | "all" (a bare "<year>" from old links still filters by year)
   location?: string;
   priority?: string;
   from?: string; // YYYY-MM
@@ -15,10 +17,14 @@ export interface AppFilters {
   sort?: string;
   dir?: "asc" | "desc";
   page?: number;
+  per?: number;
   view?: "active" | "archived" | "trash";
 }
 
 const SORTS = new Set(["updated_at", "created_at", "company_name", "submitted_key", "status", "priority"]);
+
+// Status and priority sort by pipeline rank, not alphabetically.
+const SORT_COLUMN: Record<string, string> = { status: "status_rank", priority: "priority_rank" };
 
 // Strip characters that carry meaning in PostgREST filter syntax / LIKE patterns.
 const clean = (s: string) =>
@@ -29,11 +35,11 @@ const clean = (s: string) =>
 
 export function parseFilters(
   sp: Record<string, string | string[] | undefined>,
-  defaultSeasonYear: number,
+  defaultSeason: string,
 ): AppFilters & { seasonValue: string } {
   const one = (k: string) => (Array.isArray(sp[k]) ? sp[k]![0] : (sp[k] as string | undefined)) || undefined;
   const sort = one("sort");
-  const season = one("season") ?? String(defaultSeasonYear);
+  const season = one("season") ?? defaultSeason;
   return {
     q: one("q"),
     status: (STATUSES as readonly string[]).includes(one("status") ?? "") ? one("status") : undefined,
@@ -46,6 +52,7 @@ export function parseFilters(
     sort: sort && SORTS.has(sort) ? sort : "updated_at",
     dir: one("dir") === "asc" ? "asc" : "desc",
     page: Math.max(1, Number(one("page")) || 1),
+    per: (PAGE_SIZES as readonly number[]).includes(Number(one("per"))) ? Number(one("per")) : PAGE_SIZE,
     view: one("view") === "archived" ? "archived" : one("view") === "trash" ? "trash" : "active",
   };
 }
@@ -64,7 +71,11 @@ function applyFilters(q: Q, f: AppFilters): Q {
   if (f.priority) query = query.eq("priority", f.priority);
   if (f.location) query = query.ilike("locations_text", `%${clean(f.location).toLowerCase()}%`);
   if (f.season === "unclassified") query = query.or("season.is.null,season_year.is.null");
-  else if (f.season && f.season !== "all" && /^\d{4}$/.test(f.season)) query = query.eq("season_year", Number(f.season));
+  else if (f.season && f.season !== "all") {
+    const sk = parseSeasonKey(f.season);
+    if (sk) query = query.eq("season", sk.name).eq("season_year", sk.year);
+    else if (/^\d{4}$/.test(f.season)) query = query.eq("season_year", Number(f.season));
+  }
   if (f.from) query = query.gte("submitted_key", Number(f.from.replace("-", "")) * 100);
   if (f.to) query = query.lte("submitted_key", Number(f.to.replace("-", "")) * 100 + 99);
   return query;
@@ -72,23 +83,16 @@ function applyFilters(q: Q, f: AppFilters): Q {
 
 export async function listApplications(supabase: SupabaseClient, f: AppFilters) {
   const page = f.page ?? 1;
+  const per = f.per ?? PAGE_SIZE;
   const base = supabase.from("applications").select("*", { count: "exact" });
   const { data, count, error } = await applyFilters(base, f)
-    .order(f.sort ?? "updated_at", { ascending: f.dir === "asc", nullsFirst: false })
+    .order(SORT_COLUMN[f.sort ?? "updated_at"] ?? f.sort ?? "updated_at", { ascending: f.dir === "asc", nullsFirst: false })
+    // Stable tie-breaker so equal values (e.g. same priority) never look unsorted or reshuffle between pages.
+    .order("updated_at", { ascending: false })
     .order("id")
-    .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+    .range((page - 1) * per, page * per - 1);
   if (error) throw new Error("applications_query_failed");
-  return { rows: (data ?? []) as Application[], total: count ?? 0, page, pageSize: PAGE_SIZE };
-}
-
-export async function seasonCounts(supabase: SupabaseClient, seasonYear: number) {
-  const head = (fn: (q: Q) => Q) => fn(supabase.from("applications").select("id", { count: "exact", head: true }) as unknown as Q);
-  const [cur, uncl, all] = await Promise.all([
-    head((q) => q.is("trashed_at", null).is("archived_at", null).eq("season_year", seasonYear)),
-    head((q) => q.is("trashed_at", null).is("archived_at", null).or("season.is.null,season_year.is.null")),
-    head((q) => q.is("trashed_at", null).is("archived_at", null)),
-  ]);
-  return { current: cur.count ?? 0, unclassified: uncl.count ?? 0, all: all.count ?? 0 };
+  return { rows: (data ?? []) as Application[], total: count ?? 0, page, pageSize: per };
 }
 
 export async function getApplicationDetail(supabase: SupabaseClient, id: string) {

@@ -7,7 +7,7 @@ const serverSchema = z.object({
     .string()
     .url()
     .transform((v) => v.replace(/\/+$/, "")),
-  REGISTRATION_MODE: z.enum(["closed_pilot", "public"]).default("closed_pilot"),
+  REGISTRATION_MODE: z.enum(["closed_pilot", "public"]).default("public"),
   SUPPORT_EMAIL: z.string().email().optional(),
   RATE_LIMIT_SALT: z.string().min(16).default("dev-only-rate-limit-salt"),
   TERMS_VERSION: z.string().min(1).max(32).default("2026-10-10"),

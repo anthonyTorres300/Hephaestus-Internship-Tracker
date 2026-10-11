@@ -133,3 +133,12 @@
   background-position: left center;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='10' viewBox='0 0 20 10'%3E%3Cpath d='M0 9.5H20M2 9.5V0.5H15V7H7V3.5H11' fill='none' stroke='%23d9b866' stroke-width='1'/%3E%3C/svg%3E");
 }
+
+@keyframes nav-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}

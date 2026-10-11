@@ -1,15 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { UploadCloud } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { CheckboxField, Field, FormAlert, type FormState } from "@/components/forms/fields";
+import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 export function ImportUploadForm() {
   const router = useRouter();
   const [state, setState] = useState<FormState>({});
   const [busy, setBusy] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function pick(files: FileList | null) {
+    const f = files?.[0];
+    if (!f || !fileRef.current) return;
+    const dt = new DataTransfer();
+    dt.items.add(f);
+    fileRef.current.files = dt.files;
+    setFileName(
+      `${f.name} (${f.size < 1024 * 1024 ? Math.max(1, Math.round(f.size / 1024)) + " KB" : (f.size / 1024 / 1024).toFixed(1) + " MB"})`,
+    );
+    setState({});
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -39,13 +57,36 @@ export function ImportUploadForm() {
     <form onSubmit={onSubmit} className="grid gap-4">
       <FormAlert state={state} />
       <Field label="CSV or TSV file (UTF-8, up to 5 MB / 5,000 rows)" name="file">
-        <input
-          id="f-file"
-          name="file"
-          type="file"
-          accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
-          className="text-sm file:mr-3 file:rounded-md file:border file:bg-muted file:px-3 file:py-1.5"
-        />
+        <label
+          htmlFor="f-file"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            pick(e.dataTransfer.files);
+          }}
+          className={cn(
+            "flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground transition-colors hover:border-primary/60 focus-within:ring-3 focus-within:ring-ring/50",
+            dragging && "border-primary bg-primary/10",
+          )}
+        >
+          <UploadCloud className="size-6" aria-hidden />
+          <span className="font-medium text-foreground">{fileName ?? "Drop a file here, or click to browse"}</span>
+          <span className="text-xs">Your original values are always kept. Nothing is imported until you commit.</span>
+          <input
+            ref={fileRef}
+            id="f-file"
+            name="file"
+            type="file"
+            accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
+            className="sr-only"
+            onChange={(e) => pick(e.target.files)}
+          />
+        </label>
       </Field>
       <Field label="…or paste table rows (tab-separated, including the header row)" name="pasted">
         <Textarea
@@ -63,7 +104,13 @@ export function ImportUploadForm() {
       />
       <div>
         <Button type="submit" disabled={busy}>
-          {busy ? "Checking rows…" : "Preview import"}
+          {busy ? (
+            <>
+              <Spinner /> Checking rows…
+            </>
+          ) : (
+            "Preview import"
+          )}
         </Button>
       </div>
     </form>
