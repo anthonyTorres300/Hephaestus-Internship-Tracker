@@ -1,3 +1,4 @@
+import { HOT_COMPANY_MATCHERS, matchHot } from "@/lib/jobs/hot-companies";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Job, Profile, UserJob } from "@/lib/data/types";
 import { isGraduateOnly, ROLE_GROUPS, type RoleGroup } from "@/lib/jobs/prefs";
@@ -24,6 +25,7 @@ export interface FeedItem {
   score: ScoreResult;
   userJob: UserJob | null;
   applied: boolean;
+  applicationId?: string | null;
   possiblePrevious: boolean;
   reviewerVerification: { state: "open" | "closed"; verified_at: string } | null;
   seasonMatch: "match" | "unknown" | "other";
@@ -103,7 +105,7 @@ export async function loadFeed(supabase: SupabaseClient, profile: Profile, filte
     supabase.from("user_jobs").select("*").limit(20000),
     supabase
       .from("applications")
-      .select("job_id, company_name, role_title, season_year, confirmed_identity")
+      .select("id, job_id, company_name, role_title, season_year, confirmed_identity")
       .is("trashed_at", null)
       .limit(2000),
     supabase
@@ -165,6 +167,7 @@ export async function loadFeed(supabase: SupabaseClient, profile: Profile, filte
       score,
       userJob: uj,
       applied,
+      applicationId: apps.find((a) => a.job_id === job.id || (!!job.identity_key && a.confirmed_identity === job.identity_key))?.id ?? null,
       possiblePrevious,
       reviewerVerification: o ? { state: o.verified_state, verified_at: o.verified_at } : null,
       seasonMatch,
@@ -222,4 +225,82 @@ export async function setUserJob(
   if (upd.data?.length) return null;
   const ins = await supabase.from("user_jobs").insert({ user_id: userId, job_id: jobId, ...patch });
   return ins.error;
+}
+
+export interface FeedPageFilters extends FeedFilters {
+  company?: string;
+  hot?: boolean;
+  tab?: "all" | "new" | "saved";
+}
+export async function loadFeedPage(
+  supabase: SupabaseClient,
+  profile: Profile,
+  filters: FeedPageFilters,
+  requestedPage = 1,
+  now = new Date(),
+) {
+  const safePage = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? Math.min(requestedPage, 1000000) : 1;
+  const { data, error } = await supabase.rpc("jobs_feed_page", {
+    p_filters: { ...filters, categories: ROLE_GROUPS[filters.role ?? "all"].categories },
+    p_page: safePage,
+    p_per: 25,
+    p_hot: HOT_COMPANY_MATCHERS,
+  });
+  if (error) {
+    // Allows a rolling deployment: old databases work until the new migration is applied.
+    if (error.code !== "PGRST202" && error.code !== "42883") throw new Error("jobs_query_failed");
+    const all = await loadFeed(supabase, profile, filters, now);
+    const companies = new Map<string, number>();
+    for (const item of all) {
+      const name = matchHot(item.job.company);
+      if (name) companies.set(name, (companies.get(name) ?? 0) + 1);
+    }
+    const filtered = all.filter(
+      (i) => (!filters.company || matchHot(i.job.company) === filters.company) && (!filters.hot || !!matchHot(i.job.company)),
+    );
+    const newer = filtered.filter((i) => now.getTime() - new Date(i.job.first_seen_at).getTime() <= 48 * 3600_000);
+    const saved = filtered.filter((i) => i.userJob?.saved);
+    const items = filters.tab === "new" ? newer : filters.tab === "saved" ? saved : filtered;
+    const page = Math.min(safePage, Math.max(1, Math.ceil(items.length / 25)));
+    return {
+      items: items.slice((page - 1) * 25, page * 25),
+      total: items.length,
+      page,
+      counts: { all: filtered.length, new: newer.length, saved: saved.length },
+      companies: [...companies].map(([name, n]) => ({ name, n })),
+      paged: false,
+    };
+  }
+  const result = data as {
+    rows: (Job & { user_job: UserJob | null; application_id: string | null; possible_previous: boolean })[];
+    total: number;
+    page: number;
+    counts: { all: number; new: number; saved: number };
+    companies: { name: string; n: number }[];
+  };
+  const ids = result.rows.map((j) => j.id);
+  const overlayResult = ids.length
+    ? await supabase.from("job_availability_overlay").select("job_id,verified_state,verified_at").in("job_id", ids)
+    : { data: [], error: null };
+  if (overlayResult.error) throw new Error("jobs_overlay_query_failed");
+  const overlay = new Map((overlayResult.data ?? []).map((r) => [r.job_id, r]));
+  const items: FeedItem[] = result.rows.map((job) => {
+    const o = overlay.get(job.id);
+    return {
+      job,
+      ...evaluate(profile, job, now),
+      userJob: job.user_job,
+      applicationId: job.application_id,
+      applied: !!job.application_id,
+      possiblePrevious: job.possible_previous,
+      reviewerVerification: o?.verified_state ? { state: o.verified_state as "open" | "closed", verified_at: o.verified_at } : null,
+      seasonMatch:
+        job.season == null || job.season_year == null
+          ? "unknown"
+          : job.season === profile.target_season && job.season_year === profile.target_year
+            ? "match"
+            : "other",
+    };
+  });
+  return { items, total: result.total, page: result.page, counts: result.counts, companies: result.companies, paged: true };
 }

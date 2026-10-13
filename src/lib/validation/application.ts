@@ -68,7 +68,7 @@ export const applicationBase = z.object({
 });
 
 export const createApplicationSchema = applicationBase.extend({
-  status: z.enum(STATUSES).default("prepared"),
+  status: z.enum(STATUSES).default("applied"),
   attested: checkbox,
   date_known: dateKnownSchema,
   submitted_day: optText(10),

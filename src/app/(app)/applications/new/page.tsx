@@ -1,3 +1,4 @@
+import { localDateIn } from "@/lib/domain/dates";
 import { randomUUID } from "node:crypto";
 import { requireWorkspace } from "@/lib/auth/session";
 import { loadSeasons } from "@/lib/data/seasons";
@@ -11,8 +12,13 @@ export default async function NewApplication({ searchParams }: { searchParams: P
   const sp = await searchParams;
   const seasons = await loadSeasons(supabase, { season: profile.target_season, year: profile.target_year });
 
+  const [year, month, day] = localDateIn(new Date(), profile.timezone).split("-").map(Number);
   let initial: FormInitial = {
-    status: "prepared",
+    submitted_precision: "day",
+    submitted_year: year,
+    submitted_month: month,
+    submitted_day: day,
+    status: "applied",
     season: profile.target_season,
     season_year: profile.target_year,
   };
@@ -34,7 +40,7 @@ export default async function NewApplication({ searchParams }: { searchParams: P
         locations: job.locations ?? [],
         work_mode: job.work_mode,
         application_url: job.apply_url,
-        status: "prepared",
+        status: "applied",
       };
     }
   }
@@ -42,7 +48,7 @@ export default async function NewApplication({ searchParams }: { searchParams: P
     <>
       <PageHeader
         title="New application"
-        description="Saving or preparing a role does not count as submitted. You will attest to submission separately."
+        description="Enter the company and role to log an application. Applied today is the default; you can change the status or date."
       />
       <div className="max-w-3xl">
         <ApplicationForm

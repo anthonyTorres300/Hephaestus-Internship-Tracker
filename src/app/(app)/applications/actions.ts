@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { DateTime } from "luxon";
 import { requireWorkspace } from "@/lib/auth/session";
 import { dbErrorStatus } from "@/lib/server/http";
-import { fieldErrors, formToObject, stringValues } from "@/lib/validation/common";
+import { fieldErrors, formToObject, stringValues, isoDate } from "@/lib/validation/common";
 import {
   createApplicationSchema,
   interviewSchema,
@@ -16,7 +16,7 @@ import {
   taskSchema,
   updateApplicationSchema,
 } from "@/lib/validation/application";
-import { PRIORITIES, STATUSES, STATUS_LABEL, isSubmittedStatus, isValidTimezone, type Status } from "@/lib/domain";
+import { PRIORITIES, STATUSES, STATUS_LABEL, isSubmittedStatus, isValidTimezone, localDateIn, type Status } from "@/lib/domain";
 import { normalizeSeasonName, seasonKey } from "@/lib/data/seasons";
 import type { FormState } from "@/components/forms/fields";
 
@@ -39,8 +39,14 @@ const dbFail = (e: { code?: string; message?: string }, raw?: Record<string, str
 };
 
 export async function createApplicationAction(_: FormState, fd: FormData): Promise<FormState> {
-  const { supabase } = await requireWorkspace();
+  const { supabase, profile } = await requireWorkspace();
   const raw = formToObject(fd);
+  raw.status ||= "applied";
+  if ((raw.date_known == null || raw.date_known === "day") && raw.submitted_day == null) {
+    raw.submitted_day = localDateIn(new Date(), profile.timezone);
+  }
+  // Adding a submitted application records the user's submission intent.
+  raw.attested = isSubmittedStatus(raw.status as Status) ? "on" : "";
   const parsed = createApplicationSchema.safeParse(raw);
   if (!parsed.success) return fail("Please fix the highlighted fields.", raw, fieldErrors(parsed.error));
   const d = parsed.data;
@@ -95,6 +101,8 @@ export async function updateApplicationAction(_: FormState, fd: FormData): Promi
   if (error) return dbFail(error, raw);
   if (!data?.length) return fail("This application changed since you opened it. Reload and try again.", raw);
   revalidatePath(`/applications/${id}`);
+  revalidatePath("/applications");
+  revalidatePath("/dashboard");
   return { status: "ok", message: "Saved." };
 }
 
@@ -118,12 +126,14 @@ export async function changeStatusAction(_: FormState, fd: FormData): Promise<Fo
       };
     }
   }
+  const effective = d.effective_at ? new Date(d.effective_at) : null;
+  if (effective && Number.isNaN(effective.getTime())) return fail("Enter a valid effective date and time.", raw);
   const { error } = await supabase.rpc("change_application_status", {
     p_application_id: d.id,
     p_expected_revision: d.revision,
     p_new_status: d.status,
     p_reason: d.reason ?? null,
-    p_effective_at: d.effective_at ? new Date(d.effective_at).toISOString() : null,
+    p_effective_at: effective?.toISOString() ?? null,
     p_attested: d.attested,
     p_submitted: submitted,
     p_submission_unknown: unknown,
@@ -243,7 +253,7 @@ export async function addTaskAction(_: FormState, fd: FormData): Promise<FormSta
     if (!dt.isValid) return fail("Enter a valid due date and time.", raw, { due_local: ["Enter a valid date and time."] });
     row.due_at = dt.toUTC().toISO();
   } else {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(d.due_date ?? "")) return fail("Choose a due date.", raw, { due_date: ["Choose a due date."] });
+    if (!isoDate.safeParse(d.due_date).success) return fail("Choose a due date.", raw, { due_date: ["Choose a due date."] });
     row.due_date = d.due_date;
   }
   const { error } = await supabase.from("tasks").insert(row);
@@ -259,18 +269,30 @@ export async function taskTransitionAction(fd: FormData) {
   const id = String(fd.get("id")),
     op = String(fd.get("op")),
     app = String(fd.get("application_id") ?? "");
-  if (op === "complete") await supabase.from("tasks").update({ state: "completed" }).eq("id", id).eq("state", "pending");
-  else if (op === "dismiss") await supabase.from("tasks").update({ state: "dismissed" }).eq("id", id).eq("state", "pending");
-  else if (op === "reopen") await supabase.from("tasks").update({ state: "pending" }).eq("id", id).neq("state", "pending");
+  const checked = async (query: PromiseLike<{ error: unknown }>) => {
+    const { error } = await query;
+    if (error) throw new Error("task_update_failed");
+  };
+  if (op === "complete") await checked(supabase.from("tasks").update({ state: "completed" }).eq("id", id).eq("state", "pending"));
+  else if (op === "dismiss") await checked(supabase.from("tasks").update({ state: "dismissed" }).eq("id", id).eq("state", "pending"));
+  else if (op === "reopen") await checked(supabase.from("tasks").update({ state: "pending" }).eq("id", id).neq("state", "pending"));
   else if (op === "snooze") {
     const days = Math.min(30, Math.max(1, Number(fd.get("days")) || 1));
     const { data: t } = await supabase.from("tasks").select("due_date,due_at").eq("id", id).maybeSingle();
     if (t?.due_date) {
-      const next = DateTime.fromISO(t.due_date, { zone: "utc" }).plus({ days }).toISODate();
-      await supabase.from("tasks").update({ due_date: next }).eq("id", id).eq("state", "pending");
+      const next = DateTime.max(
+        DateTime.fromISO(t.due_date, { zone: "utc" }),
+        DateTime.fromISO(localDateIn(new Date(), profile.timezone), { zone: "utc" }),
+      )
+        .plus({ days })
+        .toISODate();
+      await checked(supabase.from("tasks").update({ due_date: next }).eq("id", id).eq("state", "pending"));
     } else if (t?.due_at) {
-      const next = DateTime.fromISO(t.due_at, { zone: profile.timezone }).plus({ days }).toUTC().toISO();
-      await supabase.from("tasks").update({ due_at: next }).eq("id", id).eq("state", "pending");
+      const next = DateTime.max(DateTime.fromISO(t.due_at, { zone: profile.timezone }), DateTime.now().setZone(profile.timezone))
+        .plus({ days })
+        .toUTC()
+        .toISO();
+      await checked(supabase.from("tasks").update({ due_at: next }).eq("id", id).eq("state", "pending"));
     }
   }
   revalidatePath("/dashboard");

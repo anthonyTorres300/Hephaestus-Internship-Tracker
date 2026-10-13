@@ -1,3 +1,9 @@
+import { APP_VIEW_COOKIE, parseAppView } from "@/lib/applications/prefs";
+import { cookies } from "next/headers";
+import { BrowseContext } from "@/components/layout/browse-context";
+import { ViewPreferences } from "./view-preferences";
+import { localDateIn } from "@/lib/domain/dates";
+import { RefreshButton } from "@/components/layout/refresh-button";
 import Link from "next/link";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { requireWorkspace } from "@/lib/auth/session";
@@ -21,7 +27,9 @@ export const metadata = { title: "Applications" };
 
 export default async function Applications({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { supabase, profile } = await requireWorkspace();
-  const sp = await searchParams;
+  const query = await searchParams;
+  const prefs = parseAppView((await cookies()).get(APP_VIEW_COOKIE)?.value);
+  const sp = { ...query, layout: query.layout ?? prefs.layout, per: query.per ?? (prefs.per ? String(prefs.per) : undefined) };
   const f = parseFilters(sp, seasonKey(profile.target_season, profile.target_year));
   const board = (Array.isArray(sp.layout) ? sp.layout[0] : sp.layout) === "board" && f.view === "active";
   const [{ rows, total, page }, seasons] = await Promise.all([
@@ -44,7 +52,7 @@ export default async function Applications({ searchParams }: { searchParams: Pro
       dir: f.dir,
       per: f.per === PAGE_SIZE ? undefined : String(f.per),
       view: f.view === "active" ? undefined : f.view,
-      layout: board ? "board" : undefined,
+      layout: board ? "board" : "list",
       ...over,
     };
     for (const [k, v] of Object.entries(cur)) if (v) p.set(k, v);
@@ -77,11 +85,14 @@ export default async function Applications({ searchParams }: { searchParams: Pro
 
   return (
     <>
+      <BrowseContext section="applications" />
+      <ViewPreferences layout={board ? "board" : "list"} per={f.per ?? PAGE_SIZE} />
       <PageHeader
         title="Applications"
         description="Your private application log."
         actions={
           <>
+            <RefreshButton />
             <Link href="/applications/new" className={buttonVariants()}>
               New application
             </Link>
@@ -104,18 +115,20 @@ export default async function Applications({ searchParams }: { searchParams: Pro
       />
 
       <nav aria-label="Season view" className="mb-4 flex flex-wrap gap-2">
-        <SeasonTabs
-          items={tabItems}
-          current={f.season ?? targetKey}
-          newHref={qs({ season: "__SEASON__", page: undefined })}
-          fallbackHref={qs({ season: targetKey, page: undefined })}
-          defaultYear={profile.target_year}
-        />
+        <div className="flex w-full gap-2 overflow-x-auto pb-1 sm:w-auto sm:flex-wrap">
+          <SeasonTabs
+            items={tabItems}
+            current={f.season ?? targetKey}
+            newHref={qs({ season: "__SEASON__", page: undefined })}
+            fallbackHref={qs({ season: targetKey, page: undefined })}
+            defaultYear={profile.target_year}
+          />
+        </div>
         <span className="ml-auto flex gap-1 rounded-md bg-white/5 p-1" role="group" aria-label="Layout">
           {(["list", "board"] as const).map((l) => (
             <Link
               key={l}
-              href={qs({ layout: l === "board" ? "board" : undefined, view: undefined, page: undefined })}
+              href={qs({ layout: l, view: undefined, page: undefined })}
               aria-current={(l === "board") === board ? "page" : undefined}
               className={cn(
                 "rounded-md px-3 py-1 text-xs font-semibold capitalize text-muted-foreground transition-colors hover:text-foreground",
@@ -224,7 +237,7 @@ export default async function Applications({ searchParams }: { searchParams: Pro
 
       {board && rows.length > 0 ? (
         <KanbanBoard
-          key={JSON.stringify(sp)}
+          key={JSON.stringify([sp, rows.map((r) => [r.id, r.revision])])}
           apps={rows.map((a) => ({
             id: a.id,
             revision: a.revision,
@@ -241,6 +254,7 @@ export default async function Applications({ searchParams }: { searchParams: Pro
           title={total === 0 && seasons.all === 0 ? "No applications yet" : "No applications match these filters"}
           action={
             <span className="flex flex-wrap justify-center gap-2">
+              <RefreshButton />
               <Link href="/applications/new" className={buttonVariants()}>
                 Add your first application
               </Link>
@@ -267,7 +281,7 @@ export default async function Applications({ searchParams }: { searchParams: Pro
               {PAGE_SIZES.map((n) => (
                 <Link
                   key={n}
-                  href={qs({ per: n === PAGE_SIZE ? undefined : String(n), page: undefined })}
+                  href={qs({ per: String(n), page: undefined })}
                   aria-current={f.per === n ? "true" : undefined}
                   className={buttonVariants({ variant: f.per === n ? "default" : "outline", size: "xs" })}
                 >
@@ -278,6 +292,7 @@ export default async function Applications({ searchParams }: { searchParams: Pro
           </div>
           <ApplicationsList
             key={JSON.stringify(sp)}
+            today={localDateIn(new Date(), profile.timezone)}
             canBulk={f.view === "active"}
             sort={f.sort ?? "updated_at"}
             dir={f.dir ?? "desc"}
@@ -285,6 +300,8 @@ export default async function Applications({ searchParams }: { searchParams: Pro
             seasons={seasons.tabs.map((t) => ({ key: t.key, label: t.label }))}
             apps={rows.map((a) => ({
               id: a.id,
+              revision: a.revision,
+              portal: a.portal_url,
               status: a.status,
               company_name: a.company_name,
               url: a.application_url ?? a.portal_url,

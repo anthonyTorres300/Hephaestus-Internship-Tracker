@@ -40,7 +40,7 @@ function NavLinks({ isAdmin, orientation, onNavigate }: { isAdmin: boolean; orie
               onClick={onNavigate}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative flex h-full items-center gap-2 px-3 py-2 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
+                "relative flex min-h-11 h-full items-center gap-2 px-3 py-2 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
                 active && "text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-primary",
               )}
             >
@@ -142,6 +142,8 @@ export function AppShell({
   logout: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const path = usePathname();
+  const activeSection = "/" + path.split("/")[1];
   return (
     <div className="min-h-screen">
       <NavProgress />
@@ -180,9 +182,30 @@ export function AppShell({
         </div>
         <div className="meander mt-1" aria-hidden />
       </header>
-      <main id="main" className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8">
+      <main id="main" className="mx-auto w-full max-w-6xl px-4 pt-5 pb-28 md:px-8 md:py-8">
         {children}
       </main>
+      <nav
+        aria-label="Phone navigation"
+        className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden"
+      >
+        <div className="grid grid-cols-4 gap-1">
+          {NAV.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              aria-current={activeSection === href ? "page" : undefined}
+              className={cn(
+                "flex min-h-12 flex-col items-center justify-center gap-1 rounded-md text-[11px]",
+                activeSection === href ? "bg-primary/15 text-primary" : "text-muted-foreground",
+              )}
+            >
+              <Icon className="size-5" aria-hidden />
+              {label}
+            </Link>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 }

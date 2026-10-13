@@ -142,3 +142,19 @@
     transform: translateX(300%);
   }
 }
+
+/* Comfortable touch targets and safe-area spacing for installed phone apps. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  [data-slot="button"] {
+    min-height: 44px;
+  }
+  [data-slot="dialog-content"] {
+    max-height: 85dvh;
+    overflow-y: auto;
+  }
+}

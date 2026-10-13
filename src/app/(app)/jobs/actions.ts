@@ -14,16 +14,20 @@ const idOf = (fd: FormData) => z.string().uuid().parse(fd.get("job_id"));
 
 export async function toggleSaveAction(fd: FormData) {
   const { supabase, user } = await requireWorkspace();
-  await setUserJob(supabase, user.id, idOf(fd), { saved: fd.get("value") === "true" });
+  const error = await setUserJob(supabase, user.id, idOf(fd), { saved: fd.get("value") === "true" });
+  if (error) return { ok: false as const, message: "Could not save this job." };
   revalidatePath("/jobs");
   revalidatePath(`/jobs/${fd.get("job_id")}`);
+  return { ok: true as const };
 }
 
 export async function toggleHideAction(fd: FormData) {
   const { supabase, user } = await requireWorkspace();
-  await setUserJob(supabase, user.id, idOf(fd), { hidden: fd.get("value") === "true" });
+  const error = await setUserJob(supabase, user.id, idOf(fd), { hidden: fd.get("value") === "true" });
+  if (error) return { ok: false as const, message: "Could not update this job." };
   revalidatePath("/jobs");
   revalidatePath(`/jobs/${fd.get("job_id")}`);
+  return { ok: true as const };
 }
 
 // Private assertion about the employer's page; never changes the shared catalog.

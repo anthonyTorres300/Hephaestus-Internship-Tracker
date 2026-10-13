@@ -1,16 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import {
-  CheckboxField,
-  FormAlert,
-  NativeSelect,
-  SelectField,
-  SubmitButton,
-  TextField,
-  Field,
-  type FormState,
-} from "@/components/forms/fields";
+import { FormAlert, NativeSelect, SelectField, SubmitButton, TextField, Field, type FormState } from "@/components/forms/fields";
 import { STATUSES, STATUS_LABEL, isSubmittedStatus, type Status } from "@/lib/domain";
 import { seasonKey } from "@/lib/data/seasons";
 import { seasonLabel } from "@/lib/ui/format";
@@ -157,7 +148,7 @@ export function ApplicationForm({
   defaultYear?: number;
 }) {
   const [state, action] = useActionState<FormState, FormData>(mode === "create" ? createApplicationAction : updateApplicationAction, {});
-  const [status, setStatus] = useState<Status>((state.values?.status as Status) ?? initial?.status ?? "prepared");
+  const [status, setStatus] = useState<Status>((state.values?.status as Status) ?? initial?.status ?? "applied");
   const submitted = isSubmittedStatus(status);
   const v = (k: keyof FormInitial) => (state.values?.[k] ?? (initial?.[k] as string | number | null | undefined) ?? "") as string;
 
@@ -177,7 +168,7 @@ export function ApplicationForm({
         <TextField label="Company" name="company_name" required state={state} defaultValue={v("company_name")} maxLength={200} />
         <TextField label="Role title" name="role_title" required state={state} defaultValue={v("role_title")} maxLength={300} />
         {mode === "create" ? (
-          <Field label="Status" name="status" hint="Saving a job is not the same as submitting.">
+          <Field label="Status" name="status" hint="New entries default to Applied.">
             <NativeSelect id="f-status" name="status" value={status} onChange={(e) => setStatus(e.target.value as Status)}>
               {STATUSES.map((s) => (
                 <option key={s} value={s}>
@@ -192,12 +183,7 @@ export function ApplicationForm({
       {mode === "create" && submitted ? (
         <>
           <SubmissionFields state={state} initial={initial} />
-          <CheckboxField
-            name="attested"
-            required
-            label="I confirm I submitted this application."
-            hint="Required for any status beyond Saved or Prepared."
-          />
+          <input type="hidden" name="attested" value="on" />
         </>
       ) : null}
       {mode === "edit" && initial?.status && isSubmittedStatus(initial.status) ? (
@@ -344,7 +330,7 @@ export function ApplicationForm({
       )}
 
       <div>
-        <SubmitButton pendingText="Saving…">{mode === "create" ? "Create application" : "Save changes"}</SubmitButton>
+        <SubmitButton pendingText="Saving…">{mode === "create" ? "Add application" : "Save changes"}</SubmitButton>
       </div>
     </form>
   );

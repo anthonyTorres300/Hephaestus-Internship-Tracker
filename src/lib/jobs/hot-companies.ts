@@ -96,3 +96,5 @@ export function matchHot(company: string): string | null {
   }
   return best?.canonical ?? null;
 }
+
+export const HOT_COMPANY_MATCHERS = entries.map((e) => ({ canonical: e.canonical, prefix: e.tokens.join(" ") }));

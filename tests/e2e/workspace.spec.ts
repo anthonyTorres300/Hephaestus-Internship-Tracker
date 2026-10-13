@@ -20,7 +20,8 @@ test("create a prepared application, attest submission, add a follow-up, export"
   await page.goto("/applications/new");
   await page.getByLabel(/^Company/).fill(company);
   await page.getByLabel(/^Role title/).fill("Software Engineering Intern");
-  await page.getByRole("button", { name: /create application/i }).click();
+  await page.getByLabel("Status", { exact: true }).selectOption("prepared");
+  await page.getByRole("button", { name: /add application/i }).click();
   await expect(page.getByRole("heading", { name: new RegExp(company) })).toBeVisible();
   await expect(page.getByText("Not submitted").first()).toBeVisible();
 
@@ -38,6 +39,21 @@ test("create a prepared application, attest submission, add a follow-up, export"
   const res = await page.request.get("/api/export?format=csv");
   expect(res.status()).toBe(200);
   expect(await res.text()).toContain(company);
+});
+
+test("new entries default to Applied with an editable date and applications can refresh", async ({ page }) => {
+  await page.goto("/applications/new");
+  await expect(page.getByLabel("Status", { exact: true })).toHaveValue("applied");
+  await expect(page.getByLabel("Submitted on")).toHaveValue(/\d{4}-\d{2}-\d{2}/);
+  await page.getByLabel("Submitted on").fill("2026-10-09");
+  await page.getByLabel(/^Company/).fill(`Default application ${Date.now()}`);
+  await page.getByLabel(/^Role title/).fill("SWE Intern");
+  await page.getByRole("button", { name: /add application/i }).click();
+  await page.waitForURL(/\/applications\/[0-9a-f-]+$/);
+  await page.goto("/applications?season=all&layout=board");
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Refresh", exact: true })).toBeEnabled();
+  await expect(page).toHaveURL(/season=all&layout=board/);
 });
 
 test("dashboard shows an explicit empty or populated state and a table alternative for charts", async ({ page }) => {

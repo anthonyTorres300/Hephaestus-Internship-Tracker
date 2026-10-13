@@ -97,3 +97,9 @@ GitHub Actions → TypeScript adapters → restricted ingestion RPC → Postgres
 ### Testing and status
 
 Lint, typecheck, build, secret scan and 370+ Vitest tests pass locally. Database behavior is tested on embedded Postgres (PGlite) with stubbed Supabase `auth`/`storage` schemas, which is not a substitute for running the suite against a real Supabase project. Not yet verified end to end: signed-in Playwright flows, real email delivery, live GitHub Actions discovery runs, an assistive-technology accessibility audit, and load testing against real Supabase.
+
+### UI layout checks
+
+With `npm run dev` running on localhost:3000, run `npm run test:ui`. This temporarily installs a development-only page using synthetic applications and jobs, checks the layout and dialogs at 375, 768, and 1440 pixels, and removes the page afterwards. No sign-in or real account data is used. Set `UI_REVIEW_BASE_URL` to another localhost port if needed. Screenshots are saved in the operating system temporary directory.
+
+The Jobs page uses `20261013000001_paged_jobs_feed.sql` for database filtering, counts, and pagination. Apply that migration before deployment to enable the performance improvement; the app temporarily falls back to its previous feed loader if the RPC is missing.

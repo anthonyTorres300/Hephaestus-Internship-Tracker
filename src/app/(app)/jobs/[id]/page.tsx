@@ -1,3 +1,4 @@
+import { BackToList } from "@/components/layout/browse-context";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireWorkspace } from "@/lib/auth/session";
@@ -6,7 +7,6 @@ import type { Job, UserJob } from "@/lib/data/types";
 import { MISSING_EVIDENCE, type RuleName } from "@/lib/domain";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExternalLink } from "@/components/shared/external-link";
 import { fmtInstant } from "@/lib/ui/format";
@@ -45,6 +45,7 @@ export default async function JobDetail({ params }: { params: Promise<{ id: stri
     score,
     userJob,
     applied: (apps?.length ?? 0) > 0,
+    applicationId: apps?.[0]?.id ?? null,
     possiblePrevious: false,
     reviewerVerification: rv,
     seasonMatch: "match" as const,
@@ -59,15 +60,7 @@ export default async function JobDetail({ params }: { params: Promise<{ id: stri
 
   return (
     <>
-      <PageHeader
-        title={`${job.company} — ${job.title}`}
-        description={avail.text}
-        actions={
-          <Link href="/jobs" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-            Back to jobs
-          </Link>
-        }
-      />
+      <PageHeader title={`${job.company} — ${job.title}`} description={avail.text} actions={<BackToList section="jobs" />} />
       <ul className="mb-6">
         <JobRow item={item} tz={profile.timezone} now={now} />
       </ul>

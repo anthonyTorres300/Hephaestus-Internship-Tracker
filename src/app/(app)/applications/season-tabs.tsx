@@ -74,7 +74,7 @@ export function SeasonTabs({
         const active = current === t.key;
         const variant = active ? "default" : "outline";
         return (
-          <span key={t.key} className="inline-flex">
+          <span key={t.key} className="inline-flex shrink-0">
             <Link
               href={t.href}
               aria-current={active ? "page" : undefined}
@@ -100,7 +100,7 @@ export function SeasonTabs({
         type="button"
         size="sm"
         variant="ghost"
-        className="border border-dashed border-primary/50 text-primary hover:text-primary"
+        className="shrink-0 border border-dashed border-primary/50 text-primary hover:text-primary"
         onClick={() => {
           setError(null);
           setOpen(true);

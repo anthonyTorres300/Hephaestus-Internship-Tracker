@@ -1,3 +1,4 @@
+import { BackToList } from "@/components/layout/browse-context";
 import { randomUUID } from "node:crypto";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -6,7 +7,7 @@ import { getApplicationDetail } from "@/lib/data/applications";
 import { seasonLabel } from "@/lib/ui/format";
 import { loadSeasons } from "@/lib/data/seasons";
 import { PageHeader } from "@/components/layout/page-header";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -62,9 +63,7 @@ export default async function ApplicationDetail({ params }: { params: Promise<{ 
                 {life("trash", "Move to trash")}
               </>
             )}
-            <Link href="/applications" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-              Back
-            </Link>
+            <BackToList section="applications" />
           </>
         }
       />

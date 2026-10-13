@@ -2,11 +2,11 @@ export function PageHeader({ title, description, actions }: { title: string; des
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div className="grid gap-1">
-        <h1 className="text-3xl tracking-tight text-foreground">{title}</h1>
+        <h1 className="text-2xl sm:text-3xl tracking-tight text-foreground">{title}</h1>
         <span aria-hidden className="my-1 block h-px w-12 bg-primary/70" />
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">{actions}</div> : null}
     </div>
   );
 }

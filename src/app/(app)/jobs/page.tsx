@@ -1,14 +1,15 @@
+import { BrowseContext } from "@/components/layout/browse-context";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { requireWorkspace } from "@/lib/auth/session";
-import { loadFeed, type FeedFilters } from "@/lib/jobs/feed";
+import { loadFeedPage, type FeedFilters } from "@/lib/jobs/feed";
 import { PageHeader, EmptyState } from "@/components/layout/page-header";
 import { AutoRefresh } from "@/components/layout/auto-refresh";
 import { AutoSubmitForm } from "@/components/forms/auto-submit-form";
 import { Flame, Search, SlidersHorizontal } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { matchHot } from "@/lib/jobs/hot-companies";
+import { HOT_COMPANY_NAMES } from "@/lib/jobs/hot-companies";
 import { Chip } from "./filter-chip";
 import { CompanyPill } from "./company-pill";
 import { cn } from "@/lib/utils";
@@ -43,34 +44,19 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<Rec
     showHidden: sp.hidden === "1",
     showApplied: sp.applied === "1",
     showIneligible: sp.ineligible === "1",
-    sort: (["first_seen", "posted", "relevance"] as const).find((s) => s === sp.sort) ?? "first_seen",
+    sort: (["first_seen", "posted"] as const).find((s) => s === sp.sort) ?? "first_seen",
   };
-  const page = Math.max(1, Number(sp.page) || 1);
-  const [feedBase, health] = await Promise.all([
-    loadFeed(supabase, profile, filters, now),
+  const requestedPage = Number(sp.page) || 1;
+  const company = sp.company && HOT_COMPANY_NAMES.includes(sp.company) ? sp.company : undefined;
+  const hotOnly = sp.hot === "1";
+  const tab = sp.tab === "new" || sp.tab === "saved" ? sp.tab : "all";
+  const [feed, health] = await Promise.all([
+    loadFeedPage(supabase, profile, { ...filters, company, hot: hotOnly && !company, tab }, requestedPage, now),
     supabase.from("feed_health").select("repository, last_success_at, stale"),
   ]);
-  // "Top companies": counts come from the list BEFORE a company filter, so the strip stays useful while one is selected.
-  const hotCounts = new Map<string, { n: number; applyUrl: string | null }>();
-  for (const i of feedBase) {
-    const hot = matchHot(i.job.company);
-    if (hot) hotCounts.set(hot, { n: (hotCounts.get(hot)?.n ?? 0) + 1, applyUrl: hotCounts.get(hot)?.applyUrl ?? i.job.apply_url });
-  }
-  const hotStrip = [...hotCounts.entries()].sort((a, b) => b[1].n - a[1].n || a[0].localeCompare(b[0])).slice(0, 16);
-  const company = sp.company && hotCounts.has(sp.company) ? sp.company : undefined;
-  const hotOnly = sp.hot === "1";
-  const feedAll = company
-    ? feedBase.filter((i) => matchHot(i.job.company) === company)
-    : hotOnly
-      ? feedBase.filter((i) => matchHot(i.job.company))
-      : feedBase;
-  const tab = sp.tab === "new" || sp.tab === "saved" ? sp.tab : "all";
-  const isNew = (i: (typeof feedAll)[number]) => now.getTime() - new Date(i.job.first_seen_at).getTime() <= 48 * 3600_000;
-  const newItems = feedAll.filter(isNew);
-  const savedItems = feedAll.filter((i) => i.userJob?.saved);
-  const items = tab === "new" ? newItems : tab === "saved" ? savedItems : feedAll;
-  const pages = Math.max(1, Math.ceil(items.length / PAGE));
-  const slice = items.slice((page - 1) * PAGE, page * PAGE);
+  const { items: slice, total, page, counts } = feed;
+  const hotStrip = feed.companies.sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)).slice(0, 16);
+  const pages = Math.max(1, Math.ceil(total / PAGE));
   const sources = health.data ?? [];
   const lastOk = sources
     .map((s) => s.last_success_at)
@@ -96,6 +82,7 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<Rec
 
   return (
     <>
+      <BrowseContext section="jobs" />
       <PageHeader
         title="Jobs"
         description={lastOk ? `${sources.length} sources · refreshed ${fmtInstant(lastOk, profile.timezone)}` : "No refresh yet"}
@@ -226,13 +213,13 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<Rec
       {hotStrip.length > 0 ? (
         <nav aria-label="Top companies" className="mb-5 -mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
           <ul className="flex w-max gap-2">
-            {hotStrip.map(([name, info]) => {
+            {hotStrip.map(({ name, n }) => {
               const active = company === name;
               return (
                 <li key={name}>
                   <CompanyPill
                     name={name}
-                    count={info.n}
+                    count={n}
                     active={active}
                     href={link({ company: active ? undefined : name, hot: undefined, page: undefined, f: "1" })}
                   />
@@ -247,9 +234,9 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<Rec
         <nav aria-label="Listing views" className="flex gap-1 rounded-full bg-white/5 p-1">
           {(
             [
-              ["all", "All", feedAll.length],
-              ["new", "New", newItems.length],
-              ["saved", "Saved", savedItems.length],
+              ["all", "All", counts.all],
+              ["new", "New", counts.new],
+              ["saved", "Saved", counts.saved],
             ] as const
           ).map(([key, label, n]) => (
             <Link
@@ -275,7 +262,7 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<Rec
               ·{" "}
             </>
           ) : null}
-          {items.length} listing{items.length === 1 ? "" : "s"}
+          {total} listing{total === 1 ? "" : "s"}
           {pages > 1 ? ` · page ${page} of ${pages}` : ""}
         </p>
       </div>

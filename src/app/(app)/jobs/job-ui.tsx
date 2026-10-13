@@ -32,7 +32,14 @@ export function JobRow({ item, tz, now }: { item: FeedItem; tz: string; now: Dat
           </div>
         </div>
       </div>
-      <JobActions jobId={job.id} saved={!!userJob?.saved} hidden={!!userJob?.hidden} applyUrl={job.apply_url} />
+      <JobActions
+        key={`${job.id}:${!!userJob?.saved}:${!!userJob?.hidden}:${item.applicationId ?? ""}`}
+        applicationId={item.applicationId}
+        jobId={job.id}
+        saved={!!userJob?.saved}
+        hidden={!!userJob?.hidden}
+        applyUrl={job.apply_url}
+      />
     </li>
   );
 }

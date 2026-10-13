@@ -1,3 +1,5 @@
+import { TaskControls, CreateFollowUp } from "./task-controls";
+import { localDateIn } from "@/lib/domain/dates";
 import Link from "next/link";
 import { displayName } from "@/lib/auth/display-name";
 import { cookies } from "next/headers";
@@ -45,10 +47,15 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const tz = profile.timezone;
 
   const [apps, offers, interviews, statusEvents, tasks, practice, feed, health, seasons] = await Promise.all([
-    fetchAll<AppRow & { company_name: string }>(supabase, "applications"),
-    fetchAll<{ application_id: string }>(supabase, "offer_events"),
-    fetchAll<{ application_id: string }>(supabase, "interview_events"),
-    fetchAll<{ application_id: string; new_status: string }>(supabase, "application_status_events"),
+    fetchAll<AppRow & { company_name: string; role_title: string }>(
+      supabase,
+      "applications",
+      "id",
+      "id,status,company_name,role_title,submitted_precision,submitted_year,submitted_month,submitted_day,submission_date_unknown,season,season_year,trashed_at,archived_at",
+    ),
+    fetchAll<{ application_id: string }>(supabase, "offer_events", "id", "application_id"),
+    fetchAll<{ application_id: string }>(supabase, "interview_events", "id", "application_id"),
+    fetchAll<{ application_id: string; new_status: string }>(supabase, "application_status_events", "id", "application_id,new_status"),
     fetchAll<Task>(supabase, "tasks"),
     loadPractice(supabase, tz, profile.weekly_practice_goal, now),
     loadFeed(
@@ -57,7 +64,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       {
         firstSeenAfter: new Date(now.getTime() - 7 * 86400_000).toISOString(),
         season: "target",
-        sort: "first_seen",
+        sort: "relevance",
         role: jobPrefs.role,
         undergradOnly: jobPrefs.undergradOnly,
       },
@@ -82,7 +89,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   // "unclassified" view shows only unclassified rows (cohort season -1 matches nothing classified).
   const cohortApps = sel.apps;
   const total = submittedCount(apps, cohort);
-  const pipeline = pipelineCounts(cohortApps);
+  const pipeline = pipelineCounts(cohortApps.filter((a) => !a.archived_at));
   const weekly = weeklyApplications(cohortApps, tz, 12, now);
   const idsInCohort = new Set(cohortApps.map((a) => a.id));
   const off = offerRate(
@@ -138,12 +145,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <CardHeader>
         <CardTitle>Up next</CardTitle>
         <CardDescription>Overdue first, then today and the next 7 days.</CardDescription>
+        <CreateFollowUp
+          apps={cohortApps.filter((a) => !a.trashed_at).map((a) => ({ id: a.id, label: `${a.company_name} — ${a.role_title}` }))}
+          today={localDateIn(now, tz)}
+        />
       </CardHeader>
-      <CardContent className="grid gap-2">
+      <CardContent className="grid max-h-[32rem] gap-2 overflow-y-auto">
         {open.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nothing due. Add a follow-up from any application.</p>
         ) : (
-          open.slice(0, 5).map(({ t, cls }) => (
+          open.map(({ t, cls }) => (
             <div key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-white/5 p-3 text-sm">
               <span>
                 {t.application_id ? (
@@ -159,10 +170,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 <Badge variant={cls === "overdue" ? "destructive" : "outline"}>{cls === "next7" ? "next 7 days" : cls}</Badge>
                 {t.due_date ? fmtDateOnly(t.due_date) : fmtInstant(t.due_at, tz)}
               </span>
+              <TaskControls id={t.id} applicationId={t.application_id} />
             </div>
           ))
         )}
-        {open.length > 5 ? <p className="text-xs text-muted-foreground">+{open.length - 5} more due soon</p> : null}
       </CardContent>
     </Card>
   );
@@ -170,9 +181,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const jobsCard = (
     <Card>
       <CardHeader>
-        <CardTitle>New this week</CardTitle>
+        <CardTitle>Your shortlist</CardTitle>
         <CardDescription>
-          {newJobs.length} new listing{newJobs.length === 1 ? "" : "s"} matching your saved filters
+          Top matches from {newJobs.length} new listing{newJobs.length === 1 ? "" : "s"} this week
           {lastOk ? "" : " · no refresh yet"}
           {stale && lastOk ? " · list is stale" : ""}
         </CardDescription>
@@ -188,7 +199,15 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               <CompanyLogo company={f.job.company} applyUrl={f.job.apply_url} size="sm" />
               <span className="min-w-0">
                 <span className="block truncate font-medium">{f.job.company}</span>
-                <span className="block truncate text-xs text-muted-foreground">{f.job.title}</span>
+                <span className="block text-xs text-muted-foreground">{f.job.title}</span>
+                <span className="mt-1 block text-xs text-primary">
+                  {f.score.components
+                    .filter((c) => c.points > 0 && c.name !== "recency")
+                    .sort((a, b) => b.points - a.points)
+                    .slice(0, 2)
+                    .map((c) => c.explanation)
+                    .join(" · ") || "Matches your selected role and season"}
+                </span>
               </span>
             </span>
           </Link>
@@ -308,7 +327,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               ].map((x) => (
                 <div key={x.label} className="grid gap-1 px-4 first:pl-0 last:pr-0" title={x.hint}>
                   <dt className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">{x.label}</dt>
-                  <dd className="text-4xl font-light tracking-tight tabular-nums">{x.value}</dd>
+                  <dd className="text-3xl sm:text-4xl font-light tracking-tight tabular-nums">{x.value}</dd>
                 </div>
               ))}
             </dl>
@@ -332,10 +351,17 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                       />
                     ))}
                   </div>
-                  <ul className="sr-only">
+                  <p className="mt-3 text-xs text-muted-foreground">Active application pipeline</p>
+                  <ul className="mt-2 flex flex-wrap gap-2 text-xs">
                     {segments.map((st) => (
                       <li key={st}>
-                        {STATUS_LABEL[st as Status]}: {pipeline[st]}
+                        <Link
+                          href={`/applications?season=${encodeURIComponent(seasonSel === "all" ? "all" : seasonSel)}&status=${st}&layout=list`}
+                          className="inline-flex min-h-10 items-center gap-2 rounded-md bg-white/5 px-3 hover:bg-white/10"
+                        >
+                          <span className={cn("size-2 rounded-full", SEGMENT[st])} aria-hidden />
+                          {STATUS_LABEL[st as Status]}: {pipeline[st]}
+                        </Link>
                       </li>
                     ))}
                   </ul>

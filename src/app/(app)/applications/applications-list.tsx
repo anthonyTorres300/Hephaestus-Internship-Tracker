@@ -1,5 +1,7 @@
 "use client";
 
+import { QuickActions } from "./quick-actions";
+
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -20,6 +22,8 @@ import { bulkUpdateAction, type BulkInput } from "./actions";
 
 export interface ListApp {
   id: string;
+  revision: number;
+  portal?: string | null;
   status: Status;
   company_name: string;
   url?: string | null;
@@ -29,11 +33,25 @@ export interface ListApp {
   seasonText: string;
 }
 
-function SortHead({ label, k, sort, dir, hrefs }: { label: string; k: string; sort: string; dir: string; hrefs: Record<string, string> }) {
+function SortHead({
+  label,
+  k,
+  sort,
+  dir,
+  hrefs,
+  className,
+}: {
+  label: string;
+  k: string;
+  sort: string;
+  dir: string;
+  hrefs: Record<string, string>;
+  className?: string;
+}) {
   const on = sort === k;
   const Icon = !on ? ArrowUpDown : dir === "asc" ? ArrowUp : ArrowDown;
   return (
-    <TableHead aria-sort={on ? (dir === "asc" ? "ascending" : "descending") : undefined}>
+    <TableHead className={className} aria-sort={on ? (dir === "asc" ? "ascending" : "descending") : undefined}>
       <Link
         href={hrefs[k]}
         scroll={false}
@@ -51,6 +69,7 @@ function SortHead({ label, k, sort, dir, hrefs }: { label: string; k: string; so
 
 export function ApplicationsList({
   apps,
+  today,
   seasons,
   canBulk,
   sort,
@@ -58,6 +77,7 @@ export function ApplicationsList({
   sortHrefs,
 }: {
   apps: ListApp[];
+  today: string;
   /** Every season the user can pick: the target season plus their own. */
   seasons: { key: string; label: string }[];
   canBulk: boolean;
@@ -262,7 +282,7 @@ export function ApplicationsList({
       <div className="hidden md:block">
         <Card>
           <CardContent className="p-0">
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
                   {canBulk ? (
@@ -276,12 +296,19 @@ export function ApplicationsList({
                       />
                     </TableHead>
                   ) : null}
-                  <SortHead label="Company" k="company_name" sort={sort} dir={dir} hrefs={sortHrefs} />
-                  <TableHead>Role</TableHead>
-                  <SortHead label="Status" k="status" sort={sort} dir={dir} hrefs={sortHrefs} />
-                  <SortHead label="Submitted" k="submitted_key" sort={sort} dir={dir} hrefs={sortHrefs} />
-                  <SortHead label="Priority" k="priority" sort={sort} dir={dir} hrefs={sortHrefs} />
-                  <TableHead>Season</TableHead>
+                  <SortHead className="w-[20%]" label="Company" k="company_name" sort={sort} dir={dir} hrefs={sortHrefs} />
+                  <TableHead className="w-[26%]">Role</TableHead>
+                  <SortHead className="w-[24%]" label="Status" k="status" sort={sort} dir={dir} hrefs={sortHrefs} />
+                  <SortHead className="w-[16%]" label="Submitted" k="submitted_key" sort={sort} dir={dir} hrefs={sortHrefs} />
+                  <SortHead
+                    className="hidden xl:table-cell w-[10%]"
+                    label="Priority"
+                    k="priority"
+                    sort={sort}
+                    dir={dir}
+                    hrefs={sortHrefs}
+                  />
+                  <TableHead className="hidden xl:table-cell w-[12%]">Season</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -292,9 +319,9 @@ export function ApplicationsList({
                         <div className="flex p-3">{check(a)}</div>
                       </TableCell>
                     ) : null}
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium whitespace-normal break-words">
                       <Link
-                        className="flex items-center gap-3 underline-offset-2 outline-none after:absolute after:inset-0 hover:underline focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
+                        className="flex items-center gap-3 underline-offset-2 outline-none  hover:underline focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
                         href={`/applications/${a.id}`}
                         onClick={rowClick(a.id)}
                       >
@@ -302,13 +329,24 @@ export function ApplicationsList({
                         {a.company_name}
                       </Link>
                     </TableCell>
-                    <TableCell>{a.role_title}</TableCell>
+                    <TableCell className="max-w-72 whitespace-normal break-words">{a.role_title}</TableCell>
                     <TableCell>
-                      <StatusBadge status={a.status} />
+                      {canBulk ? (
+                        <QuickActions
+                          id={a.id}
+                          revision={a.revision}
+                          status={a.status}
+                          company={a.company_name}
+                          portal={a.portal}
+                          today={today}
+                        />
+                      ) : (
+                        <StatusBadge status={a.status} />
+                      )}
                     </TableCell>
-                    <TableCell>{a.sub}</TableCell>
-                    <TableCell className="capitalize">{a.priority}</TableCell>
-                    <TableCell>{a.seasonText}</TableCell>
+                    <TableCell className="whitespace-normal">{a.sub}</TableCell>
+                    <TableCell className="hidden xl:table-cell capitalize">{a.priority}</TableCell>
+                    <TableCell className="hidden xl:table-cell whitespace-normal">{a.seasonText}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -354,7 +392,7 @@ export function ApplicationsList({
             <li
               key={a.id}
               className={cn(
-                "relative flex items-start gap-3 rounded-md border p-3",
+                "relative grid grid-cols-[auto_1fr] items-start gap-3 rounded-lg bg-card border p-4",
                 selected.has(a.id) && "border-primary/60 bg-primary/5",
               )}
             >
@@ -362,7 +400,7 @@ export function ApplicationsList({
               <Link
                 href={`/applications/${a.id}`}
                 onClick={rowClick(a.id)}
-                className="grid min-w-0 flex-1 gap-1 outline-none after:absolute after:inset-0 focus-visible:after:ring-3 focus-visible:after:ring-ring/50"
+                className="grid min-w-0 flex-1 gap-1 outline-none  focus-visible:after:ring-3 focus-visible:after:ring-ring/50"
               >
                 <span className="flex items-center gap-2 font-medium">
                   <CompanyLogo company={a.company_name} applyUrl={a.url} size="xs" />
@@ -370,9 +408,21 @@ export function ApplicationsList({
                 </span>
                 <span className="text-sm">{a.role_title}</span>
                 <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <StatusBadge status={a.status} /> {a.sub} · <span className="capitalize">{a.priority}</span> priority
+                  {!canBulk ? <StatusBadge status={a.status} /> : null} {a.sub} · <span className="capitalize">{a.priority}</span> priority
                 </span>
               </Link>
+              {canBulk ? (
+                <div className="col-span-2">
+                  <QuickActions
+                    id={a.id}
+                    revision={a.revision}
+                    status={a.status}
+                    company={a.company_name}
+                    portal={a.portal}
+                    today={today}
+                  />
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>

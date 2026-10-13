@@ -16,7 +16,8 @@
     "format:check": "prettier --check .",
     "discovery": "tsx scripts/discovery.ts",
     "lifecycle": "tsx scripts/lifecycle.ts",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build",
+    "test:ui": "tsx scripts/ui-review.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",
