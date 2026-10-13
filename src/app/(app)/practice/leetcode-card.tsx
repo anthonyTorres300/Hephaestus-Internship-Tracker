@@ -21,7 +21,7 @@ export function LeetCodeCard({ username, result, tz }: { username: string | null
           <CardTitle>LeetCode</CardTitle>
           <CardDescription>
             Connect your username to see solved totals, an activity heatmap, topics, languages and contest rating. Only your public profile
-            is read, never a password or cookie.
+            is read, never a password or cookie. Your username also helps personalize recommended problems.
           </CardDescription>
         </CardHeader>
         <CardContent className="max-w-md">
@@ -102,7 +102,6 @@ export function LeetCodeCard({ username, result, tz }: { username: string | null
         <h2 className="text-xl">LeetCode</h2>
         <div className="flex items-center gap-3 text-sm">
           <ExternalLink href={`https://leetcode.com/u/${p.username}/`}>{p.username}</ExternalLink>
-          <LeetCodeDisconnectButton />
         </div>
       </div>
 
@@ -110,7 +109,7 @@ export function LeetCodeCard({ username, result, tz }: { username: string | null
         <CardContent className="grid items-center gap-6 md:grid-cols-[minmax(0,22rem)_1fr]">
           <PieBreakdown title="Solved by difficulty" data={difficulty} size={128} centerValue={p.solved.all} centerLabel="solved" />
           <div className="grid gap-4">
-            <dl className="grid grid-cols-3 gap-x-4 gap-y-4">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3">
               {figures.map((f) => (
                 <div key={f.label} className="grid gap-0.5" title={f.hint}>
                   <dt className={LABEL}>{f.label}</dt>
@@ -118,74 +117,84 @@ export function LeetCodeCard({ username, result, tz }: { username: string | null
                 </div>
               ))}
             </dl>
-            {p.badges.length ? (
-              <ul className="flex flex-wrap gap-1.5" aria-label="Badges">
-                {p.badges.map((b) => (
-                  <li key={b} className="rounded-sm bg-primary/10 px-2 py-0.5 text-xs text-primary ring-1 ring-primary/30">
-                    {b}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
           </div>
         </CardContent>
       </Card>
 
-      <Card size="sm">
-        <CardContent>
-          {p.calendar.length ? (
-            <ActivityHeatmap calendar={p.calendar} />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No submissions in the last year, or LeetCode is not sharing the activity calendar for this profile.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      <details className="group rounded-lg bg-card ring-1 ring-white/10">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-medium">Activity & profile details</summary>
+        <div className="grid gap-4 border-t border-white/10 p-4">
+          <Card size="sm">
+            <CardContent>
+              {p.calendar.length ? (
+                <ActivityHeatmap calendar={p.calendar} />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No submissions in the last year, or LeetCode is not sharing the activity calendar for this profile.
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
-      <Card size="sm">
-        <CardContent className="grid gap-6 md:grid-cols-2 md:divide-x md:divide-white/10">
-          <div className="grid gap-3">
-            <h3 className={LABEL}>Top topics</h3>
-            <PieBreakdown title="Problems solved by topic" data={topics} size={112} empty="No topic data yet" />
-          </div>
-          <div className="grid gap-3 md:pl-6">
-            <h3 className={LABEL}>Languages</h3>
-            <PieBreakdown title="Problems solved by language" data={languages} size={112} empty="No language data yet" />
-          </div>
-        </CardContent>
-      </Card>
+          <Card size="sm">
+            <CardContent className="grid gap-6 md:grid-cols-2 md:divide-x md:divide-white/10">
+              <div className="grid gap-3">
+                <h3 className={LABEL}>Top topics</h3>
+                <PieBreakdown title="Problems solved by topic" data={topics} size={112} empty="No topic data yet" />
+              </div>
+              <div className="grid gap-3 md:pl-6">
+                <h3 className={LABEL}>Languages</h3>
+                <PieBreakdown title="Problems solved by language" data={languages} size={112} empty="No language data yet" />
+              </div>
+            </CardContent>
+          </Card>
 
-      <Card size="sm">
-        <CardContent className={hasContest ? "grid gap-6 md:grid-cols-2 md:divide-x md:divide-white/10" : undefined}>
-          {hasContest ? (
-            <div className="grid min-w-0 gap-3">
-              <h3 className={LABEL}>
-                Contest rating{" "}
-                <span className="font-normal tracking-normal normal-case">
-                  · {p.contest!.attended} contests{p.contest!.topPercentage != null ? ` · top ${p.contest!.topPercentage}%` : ""}
-                </span>
-              </h3>
-              <ContestLine data={p.contest!.history} />
-            </div>
+          <Card size="sm">
+            <CardContent className={hasContest ? "grid gap-6 md:grid-cols-2 md:divide-x md:divide-white/10" : undefined}>
+              {hasContest ? (
+                <div className="grid min-w-0 gap-3">
+                  <h3 className={LABEL}>
+                    Contest rating{" "}
+                    <span className="font-normal tracking-normal normal-case">
+                      · {p.contest!.attended} contests{p.contest!.topPercentage != null ? ` · top ${p.contest!.topPercentage}%` : ""}
+                    </span>
+                  </h3>
+                  <ContestLine data={p.contest!.history} />
+                </div>
+              ) : null}
+              <div className={hasContest ? "grid min-w-0 content-start gap-3 md:pl-6" : "grid gap-3"}>
+                <h3 className={LABEL}>Recent accepted</h3>
+                {p.recent.length ? (
+                  <ul className="grid gap-1.5 text-sm">
+                    {p.recent.slice(0, 6).map((r, i) => (
+                      <li key={`${r.slug}-${i}`} className="flex items-center justify-between gap-3">
+                        <ExternalLink href={`https://leetcode.com/problems/${r.slug}/`}>{r.title}</ExternalLink>
+                        <span className="shrink-0 text-xs text-muted-foreground">{fmtDate(r.at, tz)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No recent accepted submissions are public.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {p.badges.length ? (
+            <ul className="flex flex-wrap gap-1.5" aria-label="Badges">
+              {p.badges.map((b) => (
+                <li key={b} className="rounded-sm bg-primary/10 px-2 py-0.5 text-xs text-primary ring-1 ring-primary/30">
+                  {b}
+                </li>
+              ))}
+            </ul>
           ) : null}
-          <div className={hasContest ? "grid min-w-0 content-start gap-3 md:pl-6" : "grid gap-3"}>
-            <h3 className={LABEL}>Recent accepted</h3>
-            {p.recent.length ? (
-              <ul className="grid gap-1.5 text-sm">
-                {p.recent.slice(0, 6).map((r, i) => (
-                  <li key={`${r.slug}-${i}`} className="flex items-center justify-between gap-3">
-                    <ExternalLink href={`https://leetcode.com/problems/${r.slug}/`}>{r.title}</ExternalLink>
-                    <span className="shrink-0 text-xs text-muted-foreground">{fmtDate(r.at, tz)}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-foreground">No recent accepted submissions are public.</p>
-            )}
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+            <span>Manage your connected profile</span>
+            <LeetCodeDisconnectButton />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </details>
 
       <p className="text-xs text-muted-foreground">
         From LeetCode&apos;s public profile, refreshed every few minutes. Unofficial, so it may stop working. Not mixed into your manual

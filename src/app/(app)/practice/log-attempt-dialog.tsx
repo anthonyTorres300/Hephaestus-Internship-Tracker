@@ -14,7 +14,7 @@ export function LogAttemptDialog(props: {
   language: string;
   nowLocal: string;
   knownTitles: string[];
-  prefill?: { title: string; url: string };
+  prefill?: { title: string; url: string; difficulty?: "easy" | "medium" | "hard"; topicIds?: number[] };
   defaultOpen?: boolean;
 }) {
   const { defaultOpen, ...formProps } = props;

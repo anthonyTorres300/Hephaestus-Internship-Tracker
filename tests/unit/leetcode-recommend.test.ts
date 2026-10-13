@@ -74,6 +74,60 @@ describe("recommend", () => {
     expect(out.some((r) => r.problem.topic === "dynamic-programming" && r.kind === "low_coverage")).toBe(true);
   });
 
+  it("honors explicit difficulty and topic choices, including hard problems for beginners", () => {
+    const out = recommend({ ...base, difficulty: "hard", focusTopic: "trees-bst" });
+    expect(out.length).toBeGreaterThan(2);
+    expect(out.every((r) => r.problem.difficulty === "hard" && r.problem.topic === "trees-bst")).toBe(true);
+  });
+
+  it("prioritizes due reviews, confidence and retries over new problems", () => {
+    const out = recommend({
+      ...base,
+      solved: new Set(["two-sum", "valid-palindrome"]),
+      attempted: new Set(["coin-change"]),
+      weakTopics: ["dynamic-programming"],
+      practice: {
+        "two-sum": { result: "solved_independently", confidence: 5, reviewDue: true },
+        "valid-palindrome": { result: "solved_with_hints", confidence: 2, reviewDue: false },
+      },
+    });
+    expect(out.slice(0, 3).map((r) => r.kind)).toEqual(["review_due", "build_confidence", "retry"]);
+    expect(out[1].reason).toContain("2/5");
+  });
+
+  it("keeps confidently solved problems excluded when a review is not due", () => {
+    const out = recommend({
+      ...base,
+      solved: new Set(["two-sum"]),
+      practice: { "two-sum": { result: "solved_independently", confidence: 5, reviewDue: false } },
+    });
+    expect(out.some((r) => r.problem.slug === "two-sum")).toBe(false);
+  });
+
+  it("allows a solve with hints to be practiced independently", () => {
+    const out = recommend({
+      ...base,
+      solved: new Set(["two-sum"]),
+      practice: { "two-sum": { result: "solved_with_hints", confidence: null, reviewDue: false } },
+    });
+    expect(out[0]).toMatchObject({ problem: { slug: "two-sum" }, kind: "build_confidence" });
+    expect(out[0].reason).toContain("with hints");
+  });
+
+  it("does not misclassify experienced users who solved few easy problems", () => {
+    expect(difficultyWeights({ easy: 5, medium: 100, hard: 20 }).medium).toBe(1);
+  });
+
+  it("uses manual coverage for topics without LeetCode tags", () => {
+    const out = recommend({ ...base, unpracticedTopics: ["intervals"], topicSolves: { graphs: 30 }, difficulty: "medium" });
+    expect(out.some((r) => r.problem.topic === "intervals" && r.kind === "low_coverage")).toBe(true);
+  });
+
+  it("returns no picks for a zero limit or an unavailable topic/difficulty combination", () => {
+    expect(recommend({ ...base, limit: 0 })).toEqual([]);
+    expect(recommend({ ...base, focusTopic: "sliding-window", difficulty: "easy" })).toEqual([]);
+  });
+
   it("returns an empty list when everything suitable is solved", () => {
     expect(recommend({ ...base, solved: new Set(CATALOG.map((p) => p.slug)) })).toEqual([]);
   });

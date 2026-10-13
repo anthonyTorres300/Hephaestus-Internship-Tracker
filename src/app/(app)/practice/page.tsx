@@ -1,25 +1,26 @@
 import { DateTime } from "luxon";
-import { Trash2 } from "lucide-react";
 import { requireWorkspace } from "@/lib/auth/session";
 import { loadPractice } from "@/lib/data/practice";
 import { leetcodeUsername } from "@/lib/auth/display-name";
 import { fetchLeetCodeProfile } from "@/lib/leetcode/client";
 import { DIFFICULTY_COLORS } from "@/lib/leetcode/view";
 import { OTHER_COLOR, PIE_COLORS } from "@/lib/ui/chart-colors";
-import { PageHeader, EmptyState } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/layout/page-header";
 import { BarSeriesChart } from "@/components/charts/bar-series-chart";
 import { PieBreakdown } from "@/components/charts/pie-breakdown";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { fmtDateOnly, fmtInstant, fmtWeek } from "@/lib/ui/format";
+import { fmtDateOnly, fmtWeek } from "@/lib/ui/format";
 import { LogAttemptDialog } from "./log-attempt-dialog";
 import { LeetCodeCard } from "./leetcode-card";
+import { StudyPlansCard } from "./study-plans-card";
+import { studyProblemBySlug } from "@/lib/leetcode/study-plans";
 import { RecommendedCard } from "./recommended-card";
-import { CATALOG, catalogBySlug, type Difficulty, type TopicSlug } from "@/lib/leetcode/catalog";
-import { recommend, topicSolvesFromTags } from "@/lib/leetcode/recommend";
-import { deleteAttemptAction } from "./actions";
+import { catalogBySlug, type TopicSlug } from "@/lib/leetcode/catalog";
+import { topicSolvesFromTags } from "@/lib/leetcode/recommend";
+import { AttemptsCard } from "./attempts-card";
+import { practiceSignals } from "@/lib/leetcode/practice-signals";
 
 export const metadata = { title: "Practice" };
 
@@ -37,12 +38,19 @@ export default async function Practice({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const now = new Date();
   const lcName = leetcodeUsername(user);
-  const [{ problems, attempts, topics, summary: s }, lc] = await Promise.all([
+  const [{ problems, attempts, topics, summary: s, topicIdsByProblem }, lc] = await Promise.all([
     loadPractice(supabase, profile.timezone, profile.weekly_practice_goal, now),
     lcName ? fetchLeetCodeProfile(lcName) : Promise.resolve(null),
   ]);
   const byId = new Map(problems.map((p) => [p.id, p]));
-  const recent = [...attempts].sort((a, b) => b.practiced_at.localeCompare(a.practiced_at)).slice(0, 6);
+  const topicById = new Map(topics.map((topic) => [String(topic.id), topic.title]));
+  const loggedAttempts = [...attempts]
+    .sort((a, b) => b.practiced_at.localeCompare(a.practiced_at))
+    .map((attempt) => ({
+      attempt,
+      problem: byId.get(attempt.problem_id) ?? null,
+      topics: (topicIdsByProblem.get(attempt.problem_id) ?? []).map((id) => topicById.get(id)).filter((title): title is string => !!title),
+    }));
   const nowLocal = DateTime.fromJSDate(now, { zone: profile.timezone }).toFormat("yyyy-LL-dd'T'HH:mm");
   const pct = (n: number | null) => (n == null ? "—" : `${Math.round(n * 100)}%`);
 
@@ -62,42 +70,23 @@ export default async function Practice({ searchParams }: { searchParams: Promise
   ];
   const attention = s.weakTopics.length + s.dueReviews.length;
 
-  // --- Recommendations: what the user has solved/attempted (manual log + LeetCode), which topics are thin, and what difficulty fits. ---
-  const norm = (t: string) =>
-    t
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim();
-  const catalogByTitle = new Map(CATALOG.map((c) => [norm(c.title), c.slug]));
-  const toCatalogSlug = (p: { slug: string | null; title: string }) =>
-    p.slug && catalogBySlug.has(p.slug) ? p.slug : (catalogByTitle.get(norm(p.title)) ?? null);
-  const solvedProblemIds = new Set(
-    attempts.filter((a) => a.result === "solved_independently" || a.result === "solved_with_hints").map((a) => a.problem_id),
-  );
-  const attemptedProblemIds = new Set(attempts.map((a) => a.problem_id));
-  const solvedSlugs = new Set<string>();
-  const attemptedSlugs = new Set<string>();
-  const manualSolvedByDifficulty: Record<Difficulty, number> = { easy: 0, medium: 0, hard: 0 };
-  for (const p of problems) {
-    const slug = toCatalogSlug(p);
-    if (solvedProblemIds.has(p.id)) {
-      if (slug) solvedSlugs.add(slug);
-      if (p.difficulty !== "unknown") manualSolvedByDifficulty[p.difficulty] += 1;
-    } else if (attemptedProblemIds.has(p.id) && slug) attemptedSlugs.add(slug);
-  }
+  const signals = practiceSignals(problems, attempts, nowLocal.slice(0, 10));
   const lcOk = lc?.ok ? lc.profile : null;
-  for (const r of lcOk?.recent ?? []) solvedSlugs.add(r.slug);
+  for (const r of lcOk?.recent ?? []) signals.solved.add(r.slug);
   const topicSlugById = new Map(topics.map((t) => [String(t.id), t.slug as TopicSlug]));
-  const recs = recommend({
-    solved: solvedSlugs,
-    attempted: attemptedSlugs,
+  const recommendationInput = {
+    ...signals,
     weakTopics: s.weakTopics.map((t) => topicSlugById.get(t.topic.id)).filter((x): x is TopicSlug => !!x),
     unpracticedTopics: s.unpracticedTopics.map((t) => topicSlugById.get(t.id)).filter((x): x is TopicSlug => !!x),
     topicSolves: lcOk && lcOk.solved.all >= 30 ? topicSolvesFromTags(lcOk.tags) : null,
-    solvedByDifficulty: lcOk ? { easy: lcOk.solved.easy, medium: lcOk.solved.medium, hard: lcOk.solved.hard } : manualSolvedByDifficulty,
-    limit: 6,
-  });
-  const logProblem = sp.log ? catalogBySlug.get(sp.log) : undefined;
+    // Totals can overlap, so use the larger source instead of adding them.
+    solvedByDifficulty: {
+      easy: Math.max(lcOk?.solved.easy ?? 0, signals.solvedByDifficulty.easy),
+      medium: Math.max(lcOk?.solved.medium ?? 0, signals.solvedByDifficulty.medium),
+      hard: Math.max(lcOk?.solved.hard ?? 0, signals.solvedByDifficulty.hard),
+    },
+  };
+  const logProblem = sp.log ? (studyProblemBySlug.get(sp.log) ?? catalogBySlug.get(sp.log)) : undefined;
 
   const stats = [
     {
@@ -118,6 +107,7 @@ export default async function Practice({ searchParams }: { searchParams: Promise
     <>
       <PageHeader
         title="Practice"
+        description="Build your skills, one focused session at a time."
         actions={
           <LogAttemptDialog
             key={logProblem?.slug ?? "none"}
@@ -126,7 +116,16 @@ export default async function Practice({ searchParams }: { searchParams: Promise
             nowLocal={nowLocal}
             knownTitles={problems.map((p) => p.title).slice(0, 500)}
             defaultOpen={!!logProblem}
-            prefill={logProblem ? { title: logProblem.title, url: `https://leetcode.com/problems/${logProblem.slug}/` } : undefined}
+            prefill={
+              logProblem
+                ? {
+                    title: logProblem.title,
+                    url: `https://leetcode.com/problems/${logProblem.slug}/`,
+                    difficulty: logProblem.difficulty,
+                    topicIds: topics.filter((topic) => topic.slug === logProblem.topic).map((topic) => topic.id),
+                  }
+                : undefined
+            }
           />
         }
       />
@@ -142,67 +141,41 @@ export default async function Practice({ searchParams }: { searchParams: Promise
         </dl>
       </section>
 
+      <div className="mb-6">
+        <RecommendedCard input={recommendationInput} connected={!!lcOk} />
+      </div>
+
+      <div className="mb-6">
+        <StudyPlansCard solved={[...signals.solved]} attempted={[...signals.attempted]} connected={!!lcOk} />
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card size="sm">
-          <CardContent className="grid gap-3">
-            <h2 className={LABEL}>Recent attempts</h2>
-            {recent.length === 0 ? (
-              <EmptyState title="No attempts yet">Use “Log attempt” after your next problem.</EmptyState>
-            ) : (
-              <ul className="grid">
-                {recent.map((a) => (
-                  <li
-                    key={a.id}
-                    className="flex items-center justify-between gap-3 border-t border-white/5 py-1.5 text-sm first:border-t-0"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate font-medium">{byId.get(a.problem_id)?.title ?? "Problem"}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {fmtInstant(a.practiced_at, profile.timezone)}
-                        {a.duration_minutes != null ? ` · ${a.duration_minutes} min` : ""}
-                        {a.confidence ? ` · confidence ${a.confidence}/5` : ""}
-                      </span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-1.5">
-                      <Badge variant={a.result === "solved_independently" ? "secondary" : "outline"}>{RESULT_LABEL[a.result]}</Badge>
-                      <form action={deleteAttemptAction}>
-                        <input type="hidden" name="id" value={a.id} />
-                        <Button
-                          type="submit"
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Delete attempt for ${byId.get(a.problem_id)?.title ?? "problem"}`}
-                        >
-                          <Trash2 aria-hidden />
-                        </Button>
-                      </form>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+        <AttemptsCard entries={loggedAttempts} tz={profile.timezone} />
 
         <Card size="sm">
           <CardContent className="grid gap-4">
-            <h2 className={LABEL}>Your attempts</h2>
-            <PieBreakdown
-              title="Attempts by result"
-              data={resultPie}
-              size={104}
-              centerValue={attempts.length}
-              centerLabel="attempts"
-              empty="Log an attempt to see this."
-            />
-            <PieBreakdown
-              title="Problems by difficulty"
-              data={difficultyPie}
-              size={104}
-              centerValue={s.distinctProblems}
-              centerLabel="problems"
-              empty="Nothing logged yet."
-            />
+            <h2 className={LABEL}>Practice insights</h2>
+            <details>
+              <summary className="cursor-pointer text-sm text-muted-foreground">Results & difficulty breakdown</summary>
+              <div className="mt-4 grid gap-5">
+                <PieBreakdown
+                  title="Attempts by result"
+                  data={resultPie}
+                  size={104}
+                  centerValue={attempts.length}
+                  centerLabel="attempts"
+                  empty="Log an attempt to see this."
+                />
+                <PieBreakdown
+                  title="Problems by difficulty"
+                  data={difficultyPie}
+                  size={104}
+                  centerValue={s.distinctProblems}
+                  centerLabel="problems"
+                  empty="Nothing logged yet."
+                />
+              </div>
+            </details>
             {attention > 0 ? (
               <div className="grid gap-1 border-t border-white/10 pt-3 text-sm">
                 <h3 className={LABEL}>Needs attention</h3>
@@ -222,13 +195,13 @@ export default async function Practice({ searchParams }: { searchParams: Promise
                   </p>
                 ))}
               </div>
-            ) : null}
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No reviews due or weak topics flagged. Log confidence and a review date to make your next picks more personal.
+              </p>
+            )}
           </CardContent>
         </Card>
-      </div>
-
-      <div className="mt-4">
-        <RecommendedCard recs={recs} connected={!!lcOk} />
       </div>
 
       <div className="mt-6">
@@ -236,7 +209,9 @@ export default async function Practice({ searchParams }: { searchParams: Promise
       </div>
 
       <details className="mt-6 rounded-lg bg-card ring-1 ring-white/10">
-        <summary className="cursor-pointer px-4 py-3 text-sm font-semibold tracking-[0.12em] text-muted-foreground uppercase">More</summary>
+        <summary className="cursor-pointer px-4 py-3 text-sm font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+          Practice trends & topics
+        </summary>
         <div className="grid gap-6 border-t border-white/10 p-4">
           <div>
             <h2 className="mb-2 text-base">Attempts per week</h2>

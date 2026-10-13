@@ -36,11 +36,15 @@ export interface RecommendInput {
   /** Per-topic solve counts from the LeetCode profile; null when not connected or too little data. */
   topicSolves: Partial<Record<TopicSlug, number>> | null;
   solvedByDifficulty: Record<Difficulty, number>;
+  /** Latest manual attempt for each catalog problem. */
+  practice?: Readonly<Record<string, { result: string; confidence: number | null; reviewDue: boolean }>>;
+  focusTopic?: TopicSlug;
+  difficulty?: Difficulty;
   limit?: number;
   catalog?: readonly CatalogProblem[];
 }
 
-export type RecommendationKind = "retry" | "weak_topic" | "low_coverage" | "next_step";
+export type RecommendationKind = "review_due" | "build_confidence" | "retry" | "weak_topic" | "low_coverage" | "next_step";
 
 export interface Recommendation {
   problem: CatalogProblem;
@@ -50,7 +54,7 @@ export interface Recommendation {
 }
 
 export function difficultyWeights(d: Record<Difficulty, number>): Record<Difficulty, number> {
-  if (d.easy < 30) return { easy: 1, medium: 0.6, hard: 0.05 };
+  if (d.easy < 30 && d.medium < 30 && d.hard < 10) return { easy: 1, medium: 0.6, hard: 0.05 };
   if (d.medium < 60) return { easy: 0.25, medium: 1, hard: 0.2 };
   if (d.medium < 150) return { easy: 0.1, medium: 1, hard: 0.6 };
   return { easy: 0, medium: 0.7, hard: 1 };
@@ -59,6 +63,7 @@ export function difficultyWeights(d: Record<Difficulty, number>): Record<Difficu
 export function recommend(input: RecommendInput): Recommendation[] {
   const catalog = input.catalog ?? CATALOG;
   const limit = input.limit ?? 6;
+  if (limit <= 0) return [];
   const weights = difficultyWeights(input.solvedByDifficulty);
   const weak = new Set(input.weakTopics);
   const unpracticed = new Set(input.unpracticedTopics);
@@ -72,26 +77,50 @@ export function recommend(input: RecommendInput): Recommendation[] {
     return n == null || ref === 0 ? 0 : Math.max(0, Math.min(1, 1 - n / (ref * 0.6)));
   };
   const need = (topic: TopicSlug) =>
-    Math.max(weak.has(topic) ? 1 : 0, unpracticed.has(topic) && !input.topicSolves ? 0.5 : 0, lcNeed(topic));
+    Math.max(weak.has(topic) ? 1 : 0, unpracticed.has(topic) && input.topicSolves?.[topic] == null ? 0.5 : 0, lcNeed(topic));
 
   const scored: Recommendation[] = [];
   catalog.forEach((problem, i) => {
-    if (input.solved.has(problem.slug)) return;
+    if (input.focusTopic && problem.topic !== input.focusTopic) return;
+    if (input.difficulty && problem.difficulty !== input.difficulty) return;
+    const practice = input.practice?.[problem.slug];
+    const review = practice?.reviewDue === true;
+    const confidence = practice?.confidence;
+    const buildConfidence = practice?.result === "solved_with_hints" || (confidence != null && confidence <= 2);
+    if (input.solved.has(problem.slug) && !review && !buildConfidence) return;
     const retry = input.attempted.has(problem.slug);
     const n = need(problem.topic);
-    const fit = weights[problem.difficulty];
-    if (!retry && fit < 0.1) return;
-    const score = 3 * n + 2 * fit + (retry ? 3 : 0) + (catalog.length - i) * 0.001;
+    const fit = input.difficulty ? 1 : weights[problem.difficulty];
+    if (!retry && !review && !buildConfidence && fit < 0.1) return;
+    const score = 3 * n + 2 * fit + (review ? 30 : buildConfidence ? 20 : retry ? 10 : 0) + (catalog.length - i) * 0.001;
     const topic = TOPIC_TITLES[problem.topic];
-    const kind: RecommendationKind = retry ? "retry" : weak.has(problem.topic) ? "weak_topic" : n >= 0.5 ? "low_coverage" : "next_step";
+    const kind: RecommendationKind = review
+      ? "review_due"
+      : buildConfidence
+        ? "build_confidence"
+        : retry
+          ? "retry"
+          : weak.has(problem.topic)
+            ? "weak_topic"
+            : n >= 0.5
+              ? "low_coverage"
+              : "next_step";
     const reason =
-      kind === "retry"
-        ? "You tried this but have not solved it yet"
-        : kind === "weak_topic"
-          ? `Your ${topic} results need work`
-          : kind === "low_coverage"
-            ? `Little practice in ${topic} so far`
-            : `A good next ${problem.difficulty} step`;
+      kind === "review_due"
+        ? "Your scheduled review is due. Try it again from memory."
+        : kind === "build_confidence"
+          ? confidence != null && confidence <= 2
+            ? `You rated your confidence ${confidence}/5. Revisit it without hints.`
+            : "You solved this with hints. Try it independently next."
+          : kind === "retry"
+            ? "You tried this but have not solved it yet. Give it another go."
+            : kind === "weak_topic"
+              ? `Your ${topic} results need work`
+              : kind === "low_coverage"
+                ? `Little practice in ${topic} so far`
+                : input.focusTopic
+                  ? `Matches your ${topic} focus at ${problem.difficulty} difficulty`
+                  : `A good next ${problem.difficulty} step`;
     scored.push({ problem, score, kind, reason });
   });
 
@@ -101,7 +130,7 @@ export function recommend(input: RecommendInput): Recommendation[] {
   const picked: Recommendation[] = [];
   for (const r of scored) {
     const used = perTopic.get(r.problem.topic) ?? 0;
-    if (r.kind !== "retry" && used >= 2) continue;
+    if (!input.focusTopic && !["retry", "review_due", "build_confidence"].includes(r.kind) && used >= 2) continue;
     perTopic.set(r.problem.topic, used + 1);
     picked.push(r);
     if (picked.length >= limit) break;

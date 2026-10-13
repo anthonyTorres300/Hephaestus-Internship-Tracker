@@ -20,7 +20,7 @@ export function AttemptForm({
   nowLocal: string;
   knownTitles: string[];
   onDone?: () => void;
-  prefill?: { title: string; url: string };
+  prefill?: { title: string; url: string; difficulty?: "easy" | "medium" | "hard"; topicIds?: number[] };
 }) {
   const [state, action] = useActionState<FormState, FormData>(logAttemptAction, {});
   const [minutes, setMinutes] = useState("");
@@ -88,7 +88,7 @@ export function AttemptForm({
           label="Difficulty"
           name="difficulty"
           state={state}
-          defaultValue="unknown"
+          defaultValue={prefill?.difficulty ?? "unknown"}
           options={[
             { value: "unknown", label: "Unknown" },
             { value: "easy", label: "Easy" },
@@ -129,7 +129,14 @@ export function AttemptForm({
         <div className="grid gap-1 sm:grid-cols-3">
           {topics.map((t) => (
             <label key={t.id} className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="topic_ids" value={t.id} className="size-4 accent-primary" /> {t.title}
+              <input
+                type="checkbox"
+                name="topic_ids"
+                value={t.id}
+                defaultChecked={prefill?.topicIds?.includes(t.id)}
+                className="size-4 accent-primary"
+              />{" "}
+              {t.title}
             </label>
           ))}
         </div>
