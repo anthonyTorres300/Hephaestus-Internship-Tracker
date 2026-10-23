@@ -121,7 +121,7 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<Rec
             defaultValue={sp.q}
             placeholder="Search company, role or location"
             aria-label="Search listings"
-            className="h-14 rounded-full bg-card pr-28 pl-14 text-lg ring-1 ring-white/10 [&::-webkit-search-cancel-button]:hidden"
+            className="h-14 rounded-full bg-card pr-28 pl-14 text-lg ring-1 ring-border [&::-webkit-search-cancel-button]:hidden"
           />
           <Button type="submit" className="absolute top-1/2 right-2 h-10 -translate-y-1/2 rounded-full px-6 text-base">
             Search
@@ -129,7 +129,7 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<Rec
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div role="radiogroup" aria-label="Role type" className="inline-flex gap-1 rounded-full bg-white/5 p-1">
+          <div role="radiogroup" aria-label="Role type" className="inline-flex gap-1 rounded-full bg-muted/60 p-1">
             {(Object.keys(ROLE_GROUPS) as RoleGroup[]).map((k) => (
               <Chip key={k} type="radio" name="role" value={k} checked={role === k} className="h-8 px-3.5 ring-0">
                 {roleLabels[k]}
@@ -144,7 +144,7 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<Rec
           </Chip>
           <label
             htmlFor="jobs-filters-toggle"
-            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-sm text-muted-foreground ring-1 ring-white/10 transition-colors hover:text-foreground peer-checked:bg-white/10 peer-checked:text-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring"
+            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-sm text-muted-foreground ring-1 ring-border transition-colors hover:text-foreground peer-checked:bg-muted peer-checked:text-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring"
           >
             <SlidersHorizontal className="size-4" aria-hidden /> Filters
             {advancedCount > 0 ? (
@@ -157,7 +157,7 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<Rec
           </NativeSelect>
         </div>
 
-        <div className="hidden gap-4 rounded-lg bg-card p-4 ring-1 ring-white/10 peer-checked:grid">
+        <div className="hidden gap-4 rounded-lg bg-card p-4 ring-1 ring-border peer-checked:grid">
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="grid gap-1 text-xs text-muted-foreground">
               Season
@@ -211,8 +211,8 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<Rec
       </AutoSubmitForm>
 
       {hotStrip.length > 0 ? (
-        <nav aria-label="Top companies" className="mb-5 -mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
-          <ul className="flex w-max gap-2">
+        <nav aria-label="Top companies" className="mb-5">
+          <ul className="flex flex-wrap gap-2">
             {hotStrip.map(({ name, n }) => {
               const active = company === name;
               return (
@@ -231,7 +231,7 @@ export default async function Jobs({ searchParams }: { searchParams: Promise<Rec
       ) : null}
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <nav aria-label="Listing views" className="flex gap-1 rounded-full bg-white/5 p-1">
+        <nav aria-label="Listing views" className="flex gap-1 rounded-full bg-muted/60 p-1">
           {(
             [
               ["all", "All", counts.all],

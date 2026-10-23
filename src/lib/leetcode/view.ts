@@ -49,4 +49,4 @@ export function monthTotals(calendar: { date: string; count: number }[]): { mont
 }
 
 // Dark-surface categorical steps validated with the dataviz palette checker; labels are always shown beside them.
-export const DIFFICULTY_COLORS = { easy: "#199e70", medium: "#3987e5", hard: "#d95926" } as const;
+export const DIFFICULTY_COLORS = { easy: "#199e70", medium: "#c98500", hard: "#d95926" } as const;

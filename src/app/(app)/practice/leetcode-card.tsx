@@ -121,9 +121,9 @@ export function LeetCodeCard({ username, result, tz }: { username: string | null
         </CardContent>
       </Card>
 
-      <details className="group rounded-lg bg-card ring-1 ring-white/10">
+      <details className="group rounded-lg bg-card ring-1 ring-border">
         <summary className="cursor-pointer px-4 py-3 text-sm font-medium">Activity & profile details</summary>
-        <div className="grid gap-4 border-t border-white/10 p-4">
+        <div className="grid gap-4 border-t border-border p-4">
           <Card size="sm">
             <CardContent>
               {p.calendar.length ? (

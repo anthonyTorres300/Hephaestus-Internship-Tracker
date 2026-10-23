@@ -153,7 +153,7 @@ export function KanbanBoard({ apps, truncated }: { apps: BoardApp[]; truncated: 
                   if (id) requestMove(id, status);
                 }}
                 className={cn(
-                  "shrink-0 rounded-lg bg-card p-3 ring-1 ring-white/10 transition-colors",
+                  "shrink-0 rounded-lg bg-card p-3 ring-1 ring-border transition-colors",
                   list.length ? "w-60" : "w-36",
                   over === status && "bg-primary/10 ring-2 ring-primary/60",
                 )}
@@ -164,7 +164,7 @@ export function KanbanBoard({ apps, truncated }: { apps: BoardApp[]; truncated: 
                 </header>
                 <ul className="grid min-h-16 gap-2">
                   {list.length === 0 ? (
-                    <li className="grid h-16 place-items-center rounded-md border border-dashed border-white/15 text-xs text-muted-foreground">
+                    <li className="grid h-16 place-items-center rounded-md border border-dashed border-border text-xs text-muted-foreground">
                       Drop here
                     </li>
                   ) : null}
@@ -182,7 +182,7 @@ export function KanbanBoard({ apps, truncated }: { apps: BoardApp[]; truncated: 
                         setOver(null);
                       }}
                       className={cn(
-                        "group relative cursor-grab rounded-md bg-white/5 p-3 text-sm ring-1 ring-white/10 active:cursor-grabbing",
+                        "group relative cursor-grab rounded-md bg-muted/60 p-3 text-sm ring-1 ring-border active:cursor-grabbing",
                         dragId === c.id && "opacity-40",
                       )}
                     >

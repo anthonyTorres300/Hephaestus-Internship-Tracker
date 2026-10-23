@@ -322,7 +322,7 @@ function ApplicationFormFields({
         ) : null}
 
         {mode === "create" ? (
-          <details open={!compact && !!initial?.draftValues} className="rounded-md bg-white/5 p-4">
+          <details open={!compact && !!initial?.draftValues} className="rounded-md bg-muted/60 p-4">
             <summary className="cursor-pointer text-sm font-medium">More details (priority, links, location, season)</summary>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <SelectField

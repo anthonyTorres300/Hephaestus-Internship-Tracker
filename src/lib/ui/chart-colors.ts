@@ -1,5 +1,5 @@
 // Categorical slots in the validated dark-surface order (adjacent pairs pass the CVD and normal-vision checks); labels always accompany color.
-export const PIE_COLORS = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181"] as const;
+export const PIE_COLORS = ["#b68119", "#d96f24", "#199e70", "#8063ad", "#d55181"] as const;
 export const OTHER_COLOR = "#7b8190";
 
 export interface Slice {

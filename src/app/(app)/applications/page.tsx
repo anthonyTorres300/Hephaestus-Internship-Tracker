@@ -124,7 +124,7 @@ export default async function Applications({ searchParams }: { searchParams: Pro
             defaultYear={profile.target_year}
           />
         </div>
-        <span className="ml-auto flex gap-1 rounded-md bg-white/5 p-1" role="group" aria-label="Layout">
+        <span className="ml-auto flex gap-1 rounded-md bg-muted/60 p-1" role="group" aria-label="Layout">
           {(["list", "board"] as const).map((l) => (
             <Link
               key={l}
@@ -142,7 +142,7 @@ export default async function Applications({ searchParams }: { searchParams: Pro
       </nav>
 
       {f.view !== "active" ? (
-        <p role="status" className="mb-4 flex items-center justify-between rounded-md bg-white/5 p-3 text-sm">
+        <p role="status" className="mb-4 flex items-center justify-between rounded-md bg-muted/60 p-3 text-sm">
           <span>Viewing {f.view === "archived" ? "archived" : "trashed"} applications.</span>
           <Link href={qs({ view: undefined, page: undefined })} className="underline underline-offset-2">
             Back to active
@@ -167,7 +167,7 @@ export default async function Applications({ searchParams }: { searchParams: Pro
             defaultValue={f.q}
             placeholder="Search company or role"
             aria-label="Search applications"
-            className="h-14 rounded-full bg-card pr-28 pl-14 text-lg ring-1 ring-white/10 [&::-webkit-search-cancel-button]:hidden"
+            className="h-14 rounded-full bg-card pr-28 pl-14 text-lg ring-1 ring-border [&::-webkit-search-cancel-button]:hidden"
           />
           <Button type="submit" className="absolute top-1/2 right-2 h-10 -translate-y-1/2 rounded-full px-6 text-base">
             Search
@@ -185,7 +185,7 @@ export default async function Applications({ searchParams }: { searchParams: Pro
           </NativeSelect>
           <label
             htmlFor="apps-filters-toggle"
-            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-sm text-muted-foreground ring-1 ring-white/10 transition-colors hover:text-foreground peer-checked:bg-white/10 peer-checked:text-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring"
+            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-sm text-muted-foreground ring-1 ring-border transition-colors hover:text-foreground peer-checked:bg-muted peer-checked:text-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring"
           >
             <SlidersHorizontal className="size-4" aria-hidden /> Filters
             {advancedCount > 0 ? (
@@ -210,7 +210,7 @@ export default async function Applications({ searchParams }: { searchParams: Pro
           ) : null}
         </div>
 
-        <div className="hidden gap-3 rounded-lg bg-card p-4 ring-1 ring-white/10 peer-checked:grid sm:grid-cols-2 lg:grid-cols-4">
+        <div className="hidden gap-3 rounded-lg bg-card p-4 ring-1 ring-border peer-checked:grid sm:grid-cols-2 lg:grid-cols-4">
           <label className="grid gap-1 text-xs text-muted-foreground">
             Priority
             <NativeSelect name="priority" defaultValue={f.priority ?? ""}>

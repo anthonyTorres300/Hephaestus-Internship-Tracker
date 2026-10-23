@@ -41,8 +41,8 @@ function NavLinks({ isAdmin, orientation, onNavigate }: { isAdmin: boolean; orie
               onClick={onNavigate}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative flex min-h-11 h-full items-center gap-2 px-2 py-2 text-[10px] font-semibold lg:px-3 lg:text-xs tracking-[0.14em] text-muted-foreground uppercase outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
-                active && "text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-primary",
+                "relative flex min-h-11 h-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
+                active && "bg-accent text-accent-foreground",
               )}
             >
               <Icon className={cn("size-4", orientation === "row" && "hidden")} aria-hidden />
@@ -57,7 +57,7 @@ function NavLinks({ isAdmin, orientation, onNavigate }: { isAdmin: boolean; orie
 
 function Brand() {
   return (
-    <Link href="/dashboard" className="flex shrink-0 items-center gap-2.5 whitespace-nowrap font-heading text-lg tracking-tight">
+    <Link href="/dashboard" className="flex shrink-0 items-center gap-2.5 whitespace-nowrap text-base font-semibold tracking-tight">
       <BrandMark />
       Hephaestus
     </Link>
@@ -89,8 +89,8 @@ function UserMenu({ name, email, logout }: { name: string; email: string; logout
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "flex items-center gap-2 rounded-md py-1 pr-2.5 pl-1 text-sm font-semibold outline-none transition-colors hover:bg-white/5 focus-visible:ring-3 focus-visible:ring-ring/50",
-          (open || onAccount) && "bg-white/5",
+          "flex min-h-11 items-center gap-2 rounded-lg py-1 pr-2.5 pl-1 text-sm font-semibold outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50",
+          (open || onAccount) && "bg-muted",
         )}
       >
         <span
@@ -105,7 +105,7 @@ function UserMenu({ name, email, logout }: { name: string; email: string; logout
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 z-50 mt-2 grid w-56 gap-0.5 rounded-md bg-popover p-1.5 text-sm shadow-xl ring-1 ring-white/15"
+          className="absolute right-0 z-50 mt-2 grid w-56 gap-0.5 rounded-xl bg-popover p-1.5 text-sm shadow-xl ring-1 ring-border"
         >
           <p className="truncate px-3 py-2 text-xs text-muted-foreground" title={email}>
             {email}
@@ -114,13 +114,13 @@ function UserMenu({ name, email, logout }: { name: string; email: string; logout
             href="/settings"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-white/10"
+            className="flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 hover:bg-muted"
           >
             <Settings className="size-4" aria-hidden /> Account
           </Link>
           <div
             role="none"
-            className="[&_button]:w-full [&_button]:justify-start [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-3 [&_button]:font-normal [&_button:hover]:bg-white/10"
+            className="[&_button]:w-full [&_button]:justify-start [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-3 [&_button]:font-normal [&_button:hover]:bg-muted"
           >
             {logout}
           </div>
@@ -149,7 +149,7 @@ export function AppShell({
   return (
     <div className="min-h-screen">
       <NavProgress />
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-border bg-background">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 md:px-8 lg:gap-4">
           <Brand />
           <nav aria-label="Primary" className="ml-2 hidden h-full flex-1 md:block">
@@ -183,7 +183,6 @@ export function AppShell({
             </Sheet>
           </div>
         </div>
-        <div className="meander mt-1" aria-hidden />
       </header>
       <main id="main" className="mx-auto w-full max-w-6xl px-4 pt-5 pb-28 md:px-8 md:py-8">
         {children}
@@ -200,7 +199,7 @@ export function AppShell({
               aria-current={activeSection === href ? "page" : undefined}
               className={cn(
                 "flex min-h-12 flex-col items-center justify-center gap-1 rounded-md text-[11px]",
-                activeSection === href ? "bg-primary/15 text-primary" : "text-muted-foreground",
+                activeSection === href ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted",
               )}
             >
               <Icon className="size-5" aria-hidden />

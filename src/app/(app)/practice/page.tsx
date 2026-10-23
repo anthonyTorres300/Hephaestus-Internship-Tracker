@@ -130,7 +130,7 @@ export default async function Practice({ searchParams }: { searchParams: Promise
         }
       />
 
-      <section aria-label="Summary" className="mb-5 rounded-lg bg-card px-4 py-3 ring-1 ring-white/10">
+      <section aria-label="Summary" className="mb-5 rounded-lg bg-card px-4 py-3 ring-1 ring-border">
         <dl className="grid grid-cols-2 gap-y-3 sm:grid-cols-4 sm:divide-x sm:divide-white/10">
           {stats.map((x) => (
             <div key={x.label} className="grid gap-0.5 sm:px-4 sm:first:pl-0 sm:last:pr-0" title={x.hint}>
@@ -177,7 +177,7 @@ export default async function Practice({ searchParams }: { searchParams: Promise
               </div>
             </details>
             {attention > 0 ? (
-              <div className="grid gap-1 border-t border-white/10 pt-3 text-sm">
+              <div className="grid gap-1 border-t border-border pt-3 text-sm">
                 <h3 className={LABEL}>Needs attention</h3>
                 {s.weakTopics.map((t) => (
                   <p key={t.topic.id}>
@@ -208,11 +208,11 @@ export default async function Practice({ searchParams }: { searchParams: Promise
         <LeetCodeCard username={lcName} result={lc} tz={profile.timezone} />
       </div>
 
-      <details className="mt-6 rounded-lg bg-card ring-1 ring-white/10">
+      <details className="mt-6 rounded-lg bg-card ring-1 ring-border">
         <summary className="cursor-pointer px-4 py-3 text-sm font-semibold tracking-[0.12em] text-muted-foreground uppercase">
           Practice trends & topics
         </summary>
-        <div className="grid gap-6 border-t border-white/10 p-4">
+        <div className="grid gap-6 border-t border-border p-4">
           <div>
             <h2 className="mb-2 text-base">Attempts per week</h2>
             <BarSeriesChart

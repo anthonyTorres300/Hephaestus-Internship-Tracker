@@ -21,7 +21,7 @@ export function Chip({
       <input type={type} name={name} value={value} defaultChecked={checked} className="peer sr-only" />
       <span
         className={cn(
-          "inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm leading-none whitespace-nowrap text-muted-foreground ring-1 ring-white/10 transition-colors hover:text-foreground peer-checked:bg-primary/15 peer-checked:text-primary peer-checked:ring-primary/40 peer-focus-visible:ring-2 peer-focus-visible:ring-ring",
+          "inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm leading-none whitespace-nowrap text-muted-foreground ring-1 ring-border transition-colors hover:text-foreground peer-checked:bg-primary/15 peer-checked:text-primary peer-checked:ring-primary/40 peer-focus-visible:ring-2 peer-focus-visible:ring-ring",
           className,
         )}
       >

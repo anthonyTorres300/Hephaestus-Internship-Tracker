@@ -11,7 +11,7 @@ export function JobRow({ item, tz, now }: { item: FeedItem; tz: string; now: Dat
   const place = (job.locations ?? []).slice(0, 2).join(" · ") || "Location unknown";
   const more = (job.locations ?? []).length - 2;
   return (
-    <li className="grid gap-3 rounded-lg bg-card p-4 ring-1 ring-white/10 lg:min-h-28 lg:grid-cols-[1fr_auto] lg:items-center">
+    <li className="grid gap-3 rounded-lg bg-card p-4 ring-1 ring-border lg:min-h-28 lg:grid-cols-[1fr_auto] lg:items-center">
       <div className="flex min-w-0 items-start gap-4">
         <CompanyLogo company={job.company} applyUrl={job.apply_url} />
         <div className="grid min-w-0 gap-1">

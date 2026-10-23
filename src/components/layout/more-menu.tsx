@@ -36,7 +36,7 @@ export function MoreMenu({ label = "More actions", children }: { label?: string;
         <div
           role="menu"
           onClick={() => setOpen(false)}
-          className="absolute right-0 z-50 mt-2 grid w-52 gap-0.5 rounded-md bg-popover p-1.5 text-sm shadow-xl ring-1 ring-white/15 [&_a]:rounded-lg [&_a]:px-3 [&_a]:py-2 [&_a:hover]:bg-white/10"
+          className="absolute right-0 z-50 mt-2 grid w-52 gap-0.5 rounded-md bg-popover p-1.5 text-sm shadow-xl ring-1 ring-border [&_a]:rounded-lg [&_a]:px-3 [&_a]:py-2 [&_a:hover]:bg-muted"
         >
           {children}
         </div>

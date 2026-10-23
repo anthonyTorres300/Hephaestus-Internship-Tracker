@@ -23,7 +23,7 @@ function Name({ name, active }: { name: string; active: boolean }) {
   );
 }
 
-// Fixed-width pill so every company chip is the same size; shows a spinner while the filtered list loads.
+// Compact company filters wrap naturally and show a spinner while results load.
 export function CompanyPill({ name, count, href, active }: { name: string; count: number; href: string; active: boolean }) {
   return (
     <Link
@@ -31,7 +31,7 @@ export function CompanyPill({ name, count, href, active }: { name: string; count
       aria-pressed={active}
       title={`${count} listing${count === 1 ? "" : "s"} at ${name}`}
       className={cn(
-        "flex h-11 w-44 items-center gap-2 rounded-full bg-card pr-4 pl-1.5 text-sm whitespace-nowrap ring-1 ring-white/10 transition-colors hover:ring-white/30",
+        "flex h-10 w-fit max-w-52 items-center gap-2 rounded-full bg-card pr-3 pl-1 text-sm whitespace-nowrap ring-1 ring-border transition-colors hover:ring-ring/50",
         active && "bg-primary/15 ring-primary/50",
       )}
     >

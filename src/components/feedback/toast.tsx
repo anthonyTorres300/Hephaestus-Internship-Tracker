@@ -58,7 +58,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div
             key={t.id}
             role="status"
-            className="pointer-events-auto flex items-center gap-3 rounded-lg bg-popover px-4 py-3 text-sm shadow-xl ring-1 ring-white/15"
+            className="pointer-events-auto flex items-center gap-3 rounded-lg bg-popover px-4 py-3 text-sm shadow-xl ring-1 ring-border"
           >
             <span>{t.message}</span>
             {t.actionLabel ? (

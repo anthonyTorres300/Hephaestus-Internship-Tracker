@@ -149,9 +149,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const applicationsToWatch = focusStatuses.map((status) => ({
     status,
     count: cohortApps.filter((app) => !app.archived_at && app.status === status).length,
-    apps: cohortApps
-      .filter((app) => !app.archived_at && app.status === status)
-      .slice(0, 3),
+    apps: cohortApps.filter((app) => !app.archived_at && app.status === status).slice(0, 3),
   }));
 
   const progressRank: Partial<Record<Status, number>> = {
@@ -206,10 +204,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
   const seasonFunnel = seasons.tabs.map((season) => {
     const seasonSubmitted = submittedApps(
-      apps.filter(
-        (app) =>
-          !app.trashed_at && app.season === season.name && app.season_year === season.year,
-      ),
+      apps.filter((app) => !app.trashed_at && app.season === season.name && app.season_year === season.year),
     );
     return {
       ...season,
@@ -276,7 +271,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <p className="text-sm text-muted-foreground">Nothing due. Add a follow-up from any application.</p>
         ) : (
           open.map(({ t, cls }) => (
-            <div key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-white/5 p-3 text-sm">
+            <div key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/60 p-3 text-sm">
               <span>
                 {t.application_id ? (
                   <Link className="font-medium underline-offset-2 hover:underline" href={`/applications/${t.application_id}`}>
@@ -314,7 +309,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <Link
             key={f.job.id}
             href={`/jobs/${f.job.id}`}
-            className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-white/5 p-3 text-sm transition-colors hover:bg-white/10"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/60 p-3 text-sm transition-colors hover:bg-muted"
           >
             <span className="flex min-w-0 items-center gap-3">
               <CompanyLogo company={f.job.company} applyUrl={f.job.apply_url} size="sm" />
@@ -382,10 +377,14 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <section aria-labelledby="applications-to-watch" className="mb-6">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
           <div>
-            <h2 id="applications-to-watch" className="text-lg font-semibold tracking-tight">Applications to watch</h2>
+            <h2 id="applications-to-watch" className="text-lg font-semibold tracking-tight">
+              Applications to watch
+            </h2>
             <p className="text-sm text-muted-foreground">Your active applications in later stages of the process.</p>
           </div>
-          <Link className="text-sm underline-offset-2 hover:underline" href="/applications?layout=list">View all applications</Link>
+          <Link className="text-sm underline-offset-2 hover:underline" href="/applications?layout=list">
+            View all applications
+          </Link>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {applicationsToWatch.map(({ status, count, apps: stageApps }) => (
@@ -401,10 +400,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                       <Link
                         key={app.id}
                         href={`/applications/${app.id}`}
-                        className="min-w-0 rounded-md bg-white/5 px-3 py-2 transition-colors hover:bg-white/10"
+                        className="flex min-w-0 items-center gap-3 rounded-xl bg-muted/60 px-3 py-2.5 transition-colors hover:bg-muted"
                       >
-                        <span className="block truncate text-sm font-medium">{app.company_name}</span>
-                        <span className="block truncate text-xs text-muted-foreground">{app.role_title}</span>
+                        <CompanyLogo company={app.company_name} size="xs" />
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium">{app.company_name}</span>
+                          <span className="block truncate text-xs text-muted-foreground">{app.role_title}</span>
+                        </span>
                       </Link>
                     ))}
                     {count > stageApps.length && (
@@ -435,7 +437,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             { label: targetLabel, rows: targetApps, submitted: targetSubmitted, best: targetBest },
             { label: "Earlier seasons", rows: previousApps, submitted: previousSubmitted, best: previousBest },
           ].map(({ label, rows, submitted: submittedRows, best }) => (
-            <div key={label} className="rounded-lg bg-white/5 p-4">
+            <div key={label} className="rounded-lg bg-muted/60 p-4">
               <h3 className="font-semibold">{label}</h3>
               {rows.length === 0 ? (
                 <p className="mt-3 text-sm text-muted-foreground">No applications recorded yet.</p>
@@ -454,7 +456,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 </dl>
               )}
               {best && (
-                <p className="mt-4 border-t border-white/10 pt-3 text-sm">
+                <p className="mt-4 border-t border-border pt-3 text-sm">
                   Furthest: <span className="font-medium">{progressLabel[progressRank[best.status] ?? 1]}</span>
                   <span className="text-muted-foreground"> with </span>
                   <Link className="font-medium underline-offset-2 hover:underline" href={`/applications/${best.app.id}`}>
@@ -480,21 +482,29 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               Share of submitted applications that reached each stage, based on status history.
             </p>
             {seasonFunnel.length ? (
-              <div className="overflow-x-auto rounded-md border border-white/10">
+              <div className="overflow-x-auto rounded-md border border-border">
                 <table className="w-full min-w-[680px] text-sm">
-                  <thead className="bg-white/5 text-left text-xs text-muted-foreground">
+                  <thead className="bg-muted/60 text-left text-xs text-muted-foreground">
                     <tr>
-                      <th scope="col" className="px-3 py-2 font-medium">Season</th>
-                      <th scope="col" className="px-3 py-2 text-right font-medium">Submitted</th>
+                      <th scope="col" className="px-3 py-2 font-medium">
+                        Season
+                      </th>
+                      <th scope="col" className="px-3 py-2 text-right font-medium">
+                        Submitted
+                      </th>
                       {seasonFunnel[0].stages.map((stage) => (
-                        <th key={stage.label} scope="col" className="px-3 py-2 text-right font-medium">{stage.label}</th>
+                        <th key={stage.label} scope="col" className="px-3 py-2 text-right font-medium">
+                          {stage.label}
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/10">
                     {seasonFunnel.map((season) => (
                       <tr key={season.key}>
-                        <th scope="row" className="whitespace-nowrap px-3 py-2 text-left font-medium">{season.label}</th>
+                        <th scope="row" className="whitespace-nowrap px-3 py-2 text-left font-medium">
+                          {season.label}
+                        </th>
                         <td className="px-3 py-2 text-right tabular-nums">{season.submitted}</td>
                         {season.stages.map((stage) => (
                           <td key={stage.label} className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
@@ -516,9 +526,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Applications needing attention</CardTitle>
-          <CardDescription>
-            Active applications with no status update in 14 days and no upcoming follow-up reminder.
-          </CardDescription>
+          <CardDescription>Active applications with no status update in 14 days and no upcoming follow-up reminder.</CardDescription>
           <CreateFollowUp
             apps={needsAttention.map(({ app }) => ({ id: app.id, label: `${app.company_name} — ${app.role_title}` }))}
             today={today}
@@ -530,10 +538,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               <Link
                 key={app.id}
                 href={`/applications/${app.id}`}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-white/5 p-3 transition-colors hover:bg-white/10"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/60 p-3 transition-colors hover:bg-muted"
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium">{app.company_name} · {app.role_title}</span>
+                  <span className="block truncate text-sm font-medium">
+                    {app.company_name} · {app.role_title}
+                  </span>
                   <span className="block text-xs text-muted-foreground">
                     {STATUS_LABEL[app.status]} · unchanged since {fmtInstant(changedAt, tz)}
                   </span>
@@ -578,7 +588,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                   cta: "Open jobs",
                 },
               ].map((x) => (
-                <div key={x.n} className="grid content-between gap-3 rounded-md bg-white/5 p-4">
+                <div key={x.n} className="grid content-between gap-3 rounded-md bg-muted/60 p-4">
                   <div className="grid gap-1">
                     <span className="text-2xl font-light text-primary tabular-nums">{x.n}</span>
                     <p className="font-semibold">{x.title}</p>
@@ -595,7 +605,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </>
       ) : (
         <>
-          <section aria-label="Summary" className="mb-6 rounded-lg bg-card p-4 ring-1 ring-white/10">
+          <section aria-label="Summary" className="mb-6 rounded-lg bg-card p-4 ring-1 ring-border">
             <dl className="grid grid-cols-3 divide-x divide-white/10">
               {[
                 {
@@ -646,7 +656,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                       <li key={st}>
                         <Link
                           href={`/applications?season=${encodeURIComponent(seasonSel === "all" ? "all" : seasonSel)}&status=${st}&layout=list`}
-                          className="inline-flex min-h-10 items-center gap-2 rounded-md bg-white/5 px-3 hover:bg-white/10"
+                          className="inline-flex min-h-10 items-center gap-2 rounded-md bg-muted/60 px-3 hover:bg-muted"
                         >
                           <span className={cn("size-2 rounded-full", SEGMENT[st])} aria-hidden />
                           {STATUS_LABEL[st as Status]}: {pipeline[st]}
@@ -664,11 +674,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             {jobsCard}
           </div>
 
-          <details className="mt-6 rounded-lg bg-card ring-1 ring-white/10">
+          <details className="mt-6 rounded-lg bg-card ring-1 ring-border">
             <summary className="cursor-pointer px-4 py-3 text-sm font-semibold tracking-[0.12em] text-muted-foreground uppercase">
               More
             </summary>
-            <div className="grid gap-6 border-t border-white/10 p-4">
+            <div className="grid gap-6 border-t border-border p-4">
               <div>
                 <h2 className="mb-1 text-base">Applications per week</h2>
                 <p className="mb-3 text-xs text-muted-foreground">

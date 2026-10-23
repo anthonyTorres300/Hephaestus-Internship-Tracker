@@ -5,7 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-background/95 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 md:px-8">
           <Link href="/" className="flex items-center gap-2.5 font-heading text-lg tracking-tight">
             <BrandMark />
@@ -19,7 +19,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <main id="main" className="flex-1">
         {children}
       </main>
-      <footer className="border-t border-white/10">
+      <footer className="border-t border-border">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-6 text-sm text-muted-foreground md:px-8">
           <span>Listings are community-maintained and unverified.</span>
           <span className="flex gap-4">

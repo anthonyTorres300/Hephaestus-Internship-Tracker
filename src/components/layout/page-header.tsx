@@ -13,7 +13,7 @@ export function PageHeader({ title, description, actions }: { title: React.React
 
 export function EmptyState({ title, children, action }: { title: string; children?: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="grid justify-items-center gap-2 rounded-lg border-2 border-dashed border-white/15 bg-card/40 p-8 text-center">
+    <div className="grid justify-items-center gap-2 rounded-lg border-2 border-dashed border-border bg-card/40 p-8 text-center">
       <p className="font-medium">{title}</p>
       {children ? <p className="max-w-md text-sm text-muted-foreground">{children}</p> : null}
       {action}

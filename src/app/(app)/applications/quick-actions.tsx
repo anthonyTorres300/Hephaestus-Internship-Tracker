@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquare, CalendarPlus } from "lucide-react";
+import { MessageSquare, CalendarPlus, ExternalLink } from "lucide-react";
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -72,8 +72,15 @@ export function QuickActions({
         <span className="md:sr-only">Follow-up</span>
       </Button>
       {portal ? (
-        <a className="inline-flex min-h-10 items-center px-2 text-xs underline" href={portal} target="_blank" rel="noopener noreferrer">
-          Portal<span className="sr-only"> (opens in a new tab)</span>
+        <a
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          href={portal}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Open application portal for ${company}`}
+          title="Open application portal"
+        >
+          <ExternalLink aria-hidden className="size-4" />
         </a>
       ) : null}
       <Dialog open={mode !== null} onOpenChange={(open) => !open && !busy && setMode(null)}>

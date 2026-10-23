@@ -1,20 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Manrope, Marcellus } from "next/font/google";
 import "./globals.css";
-
-const manrope = Manrope({ variable: "--font-manrope", subsets: ["latin"] });
-const marcellus = Marcellus({ variable: "--font-marcellus", subsets: ["latin"], weight: "400" });
 
 export const metadata: Metadata = {
   title: { default: "Hephaestus", template: "%s · Hephaestus" },
   description: "A private workspace to track internship applications, follow-ups, resumes and coding practice.",
+  // The app provides its own appearance; prevent Dark Reader from rewriting DOM attributes before hydration.
+  other: { "darkreader-lock": "true" },
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`dark ${manrope.variable} ${marcellus.variable} h-full antialiased`}>
+    <html lang="en" className="dark h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <a
           href="#main"

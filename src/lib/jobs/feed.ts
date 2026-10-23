@@ -81,7 +81,13 @@ export async function fetchCandidateJobs(supabase: SupabaseClient, profile: Prof
   const out: Job[] = [];
   const cats = ROLE_GROUPS[filters.role ?? "all"].categories;
   for (let from = 0; from < MAX_CANDIDATES; from += PAGE_ROWS) {
-    let query = supabase.from("jobs").select(JOB_COLUMNS).is("superseded_by", null).neq("availability", "source_closed");
+    let query = supabase
+      .from("jobs")
+      .select(JOB_COLUMNS)
+      .is("superseded_by", null)
+      .eq("country", "US")
+      .neq("availability", "source_closed")
+      .neq("availability", "missing_from_source");
     const want = filters.season ?? "target";
     if (want === "target") query = query.eq("season", profile.target_season).eq("season_year", profile.target_year);
     else if (want === "unknown") query = query.or("season.is.null,season_year.is.null");

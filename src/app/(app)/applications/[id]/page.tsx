@@ -101,13 +101,13 @@ export default async function ApplicationDetail({ params }: { params: Promise<{ 
       <div className="grid gap-4">
         <section aria-label="Application timeline">
           <Card className="overflow-hidden border-primary/15 bg-gradient-to-br from-primary/[0.06] via-card to-card">
-            <CardHeader className="border-b border-white/10 pb-4 sm:flex sm:flex-row sm:items-center sm:justify-between">
+            <CardHeader className="border-b border-border pb-4 sm:flex sm:flex-row sm:items-center sm:justify-between">
               <div className="grid gap-1">
                 <CardTitle className="text-lg">Application timeline</CardTitle>
                 <CardDescription>Every recorded step in this application’s journey.</CardDescription>
               </div>
               <div className="mt-2 flex items-center gap-2 sm:mt-0">
-                <Badge variant="outline" className="border-white/10 bg-background/50">
+                <Badge variant="outline" className="border-border bg-background/50">
                   {events.length} update{events.length === 1 ? "" : "s"}
                 </Badge>
                 <StatusBadge status={app.status} />
@@ -115,7 +115,7 @@ export default async function ApplicationDetail({ params }: { params: Promise<{ 
             </CardHeader>
             <CardContent className="pt-5 sm:pt-6">
               {timelineEvents.length === 0 ? (
-                <div className="grid justify-items-center gap-2 rounded-xl border border-dashed border-white/15 bg-background/30 px-6 py-10 text-center">
+                <div className="grid justify-items-center gap-2 rounded-xl border border-dashed border-border bg-background/30 px-6 py-10 text-center">
                   <span className="grid size-10 place-items-center rounded-full bg-primary/10 text-primary">
                     <CalendarDays aria-hidden className="size-5" />
                   </span>
@@ -140,7 +140,7 @@ export default async function ApplicationDetail({ params }: { params: Promise<{ 
                           <span
                             aria-hidden
                             className={`relative z-10 mt-4 size-3 shrink-0 rounded-full border-2 ${
-                              latest ? "border-primary bg-primary ring-4 ring-primary/15" : "border-white/25 bg-card"
+                              latest ? "border-primary bg-primary ring-4 ring-primary/15" : "border-border bg-card"
                             }`}
                           />
                         </div>
@@ -148,7 +148,7 @@ export default async function ApplicationDetail({ params }: { params: Promise<{ 
                           className={`rounded-xl border p-4 transition-colors sm:p-5 ${
                             latest
                               ? "border-primary/35 bg-gradient-to-br from-primary/[0.07] to-background/60 shadow-lg shadow-black/10"
-                              : "border-white/10 bg-background/35 hover:border-white/20 hover:bg-white/[0.035]"
+                              : "border-border bg-background/35 hover:border-border hover:bg-muted/40"
                           }`}
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -158,13 +158,13 @@ export default async function ApplicationDetail({ params }: { params: Promise<{ 
                               {latest ? <Sparkles aria-hidden className="size-3.5" /> : null}
                               {latest ? "Latest update" : "Status update"}
                             </span>
-                            <span className="rounded-full bg-white/5 px-2.5 py-1 text-[11px] text-muted-foreground capitalize">
+                            <span className="rounded-full bg-muted/60 px-2.5 py-1 text-[11px] text-muted-foreground capitalize">
                               {e.origin.replace(/_/g, " ")}
                             </span>
                           </div>
                           <div className="mt-3 flex flex-wrap items-center gap-2">
                             {oldLabel ? (
-                              <Badge variant="outline" className="border-white/10 bg-background/60 text-muted-foreground">
+                              <Badge variant="outline" className="border-border bg-background/60 text-muted-foreground">
                                 {oldLabel}
                               </Badge>
                             ) : (
@@ -177,7 +177,7 @@ export default async function ApplicationDetail({ params }: { params: Promise<{ 
                               <Badge variant="outline">{newLabel}</Badge>
                             )}
                           </div>
-                          <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-3 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:gap-x-5">
+                          <div className="mt-4 flex flex-col gap-2 border-t border-border pt-3 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:gap-x-5">
                             <span className="inline-flex items-center gap-1.5">
                               <CalendarDays aria-hidden className="size-3.5 text-primary/80" />
                               {e.effective_at_unknown || !e.effective_at ? "Effective date unknown" : fmtInstant(e.effective_at, tz)}
@@ -198,14 +198,14 @@ export default async function ApplicationDetail({ params }: { params: Promise<{ 
                   })}
                 </ol>
               )}
-              <p className="mt-5 border-t border-white/10 pt-3 text-xs text-muted-foreground">
+              <p className="mt-5 border-t border-border pt-3 text-xs text-muted-foreground">
                 Imported applications begin with a snapshot, so earlier history may not be available.
               </p>
             </CardContent>
           </Card>
         </section>
 
-        <details className="group rounded-lg border border-white/10 bg-card px-4 py-3">
+        <details className="group rounded-lg border border-border bg-card px-4 py-3">
           <summary className="cursor-pointer list-none text-sm font-semibold [&::-webkit-details-marker]:hidden">
             <span className="flex items-center justify-between gap-3">
               Application details
@@ -277,7 +277,7 @@ export default async function ApplicationDetail({ params }: { params: Promise<{ 
           </div>
         </details>
 
-        <details className="group rounded-lg border border-white/10 bg-card px-4 py-3">
+        <details className="group rounded-lg border border-border bg-card px-4 py-3">
           <summary className="cursor-pointer list-none text-sm font-semibold [&::-webkit-details-marker]:hidden">
             <span className="flex items-center justify-between gap-3">
               Notes{notes.length ? ` (${notes.length})` : ""}
@@ -328,7 +328,7 @@ export default async function ApplicationDetail({ params }: { params: Promise<{ 
           </div>
         </details>
 
-        <details className="group rounded-lg border border-white/10 bg-card px-4 py-3">
+        <details className="group rounded-lg border border-border bg-card px-4 py-3">
           <summary className="cursor-pointer list-none text-sm font-semibold [&::-webkit-details-marker]:hidden">
             <span className="flex items-center justify-between gap-3">
               <span>Interviews & tasks</span>
