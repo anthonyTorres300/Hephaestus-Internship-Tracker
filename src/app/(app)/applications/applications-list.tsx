@@ -1,5 +1,6 @@
 "use client";
 
+import { ApplicationDrawer } from "@/components/applications/application-drawer";
 import { QuickActions } from "./quick-actions";
 
 import Link from "next/link";
@@ -86,6 +87,7 @@ export function ApplicationsList({
   sortHrefs: Record<string, string>;
 }) {
   const router = useRouter();
+  const [drawerId, setDrawerId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -173,9 +175,10 @@ export function ApplicationsList({
 
   // While anything is selected, clicking a row toggles it instead of opening it, so a near-miss never navigates away.
   const rowClick = (id: string) => (e: React.MouseEvent) => {
-    if (selected.size === 0) return;
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
-    toggle(id);
+    if (selected.size > 0) toggle(id);
+    else setDrawerId(id);
   };
 
   const check = (a: ListApp) =>
@@ -193,6 +196,7 @@ export function ApplicationsList({
 
   return (
     <>
+      <ApplicationDrawer key={drawerId ?? "closed"} id={drawerId} onClose={() => setDrawerId(null)} />
       <div aria-live="polite">
         {msg ? (
           <p
@@ -313,7 +317,14 @@ export function ApplicationsList({
               </TableHeader>
               <TableBody>
                 {apps.map((a) => (
-                  <TableRow key={a.id} className={cn("relative cursor-pointer", selected.has(a.id) && "bg-primary/5")}>
+                  <TableRow
+                    key={a.id}
+                    className={cn("relative cursor-pointer", selected.has(a.id) && "bg-primary/5")}
+                    onClick={(event) => {
+                      if ((event.target as HTMLElement).closest("button,input,a,form,label")) return;
+                      rowClick(a.id)(event);
+                    }}
+                  >
                     {canBulk ? (
                       <TableCell className="w-12 p-0">
                         <div className="flex p-3">{check(a)}</div>

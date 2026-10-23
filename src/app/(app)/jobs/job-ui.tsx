@@ -36,6 +36,8 @@ export function JobRow({ item, tz, now }: { item: FeedItem; tz: string; now: Dat
         key={`${job.id}:${!!userJob?.saved}:${!!userJob?.hidden}:${item.applicationId ?? ""}`}
         applicationId={item.applicationId}
         jobId={job.id}
+        company={job.company}
+        role={job.title}
         saved={!!userJob?.saved}
         hidden={!!userJob?.hidden}
         applyUrl={job.apply_url}

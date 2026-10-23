@@ -6,6 +6,9 @@ Your applications, notes, resumes and practice history are visible only to you.
 
 ## What you can do
 
+- **Log quickly from any page.** Use Quick Log in the header or press `n`. Paste a public HTTPS posting link to review suggested company, role, location and requisition details. The form checks for existing applications before saving. Use **Save & log another** to keep your chosen season and submission date.
+- **Resume unfinished entries.** New-application drafts are saved on the current browser, scoped to your account and job listing, and can be restored for seven days or explicitly discarded.
+- **Review without leaving your list.** Click an application to open a drawer with notes, status, links and follow-ups; the full page is still available. After saving, set a reminder for 7 days, 14 days or a custom date. Opening an employer's page lets you confirm submission when you return.
 - **Track applications.** Log each application with its company, role, status, priority, links and notes. Statuses run from Saved and Prepared through Applied, Screening, Assessment, Interview, Offer, Accepted, Rejected, Withdrawn and Ghosted, and every change is kept in a timeline.
 - **See your pipeline.** View applications as a sortable list or as a drag-and-drop board. Click a column header (Company, Status, Submitted, Priority) to sort, and choose to show 25, 50, 100 or 200 at a time.
 - **Organize by season.** Your target season (for example Summer 2027) is a tab on the Applications page. Click **+ New season** to create your own, such as "Summer 2026" or "Co-op 2027". Each season gets its own tab, and the Dashboard can filter by it too.
@@ -26,7 +29,7 @@ Your applications, notes, resumes and practice history are visible only to you.
 
 ### Tips
 
-- Press `/` to jump to the search box and `n` to start a new application.
+- Press `/` to jump to the search box and `n` to open Quick Log. Shortcuts are ignored while typing or when a dialog is open.
 - Use the **Filters** button next to a search to narrow by priority, location or date.
 - Moving an application to Applied or later asks you to confirm you submitted it and when. Dates are never guessed; if you do not know, mark the date as unknown.
 - A season you create can be removed once it has no applications. Applications are never deleted by removing a season.

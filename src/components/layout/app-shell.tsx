@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { BrandMark } from "@/components/layout/brand";
+import { QuickLogButton } from "@/components/applications/quick-log";
 import { NavProgress } from "@/components/layout/nav-progress";
 
 const NAV = [
@@ -40,7 +41,7 @@ function NavLinks({ isAdmin, orientation, onNavigate }: { isAdmin: boolean; orie
               onClick={onNavigate}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative flex min-h-11 h-full items-center gap-2 px-3 py-2 text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
+                "relative flex min-h-11 h-full items-center gap-2 px-2 py-2 text-[10px] font-semibold lg:px-3 lg:text-xs tracking-[0.14em] text-muted-foreground uppercase outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
                 active && "text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-primary",
               )}
             >
@@ -84,6 +85,7 @@ function UserMenu({ name, email, logout }: { name: string; email: string; logout
       <button
         type="button"
         aria-haspopup="menu"
+        aria-label={`Account menu for ${name}`}
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className={cn(
@@ -97,7 +99,7 @@ function UserMenu({ name, email, logout }: { name: string; email: string; logout
         >
           {(name[0] ?? "?").toUpperCase()}
         </span>
-        <span className="max-w-32 truncate">{name}</span>
+        <span className="hidden max-w-32 truncate lg:inline">{name}</span>
         <ChevronDown className="size-4 text-muted-foreground" aria-hidden />
       </button>
       {open ? (
@@ -148,16 +150,17 @@ export function AppShell({
     <div className="min-h-screen">
       <NavProgress />
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 md:px-8">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 md:px-8 lg:gap-4">
           <Brand />
-          <nav aria-label="Primary" className="ml-4 hidden h-full flex-1 md:block">
+          <nav aria-label="Primary" className="ml-2 hidden h-full flex-1 md:block">
             <NavLinks isAdmin={isAdmin} orientation="row" />
           </nav>
-          <div className="ml-auto hidden md:block">
+          <QuickLogButton />
+          <div className="hidden md:block">
             <UserMenu name={name} email={email} logout={logout} />
           </div>
 
-          <div className="ml-auto md:hidden">
+          <div className="md:hidden">
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger render={<Button variant="outline" size="icon" aria-label="Open navigation menu" />}>
                 <Menu aria-hidden />

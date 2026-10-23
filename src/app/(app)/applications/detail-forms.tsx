@@ -16,8 +16,23 @@ import { STATUSES, STATUS_LABEL, canMoveTo, isSubmittedStatus, type Status } fro
 import { addInterviewAction, addNoteAction, addTaskAction, changeStatusAction, editNoteAction } from "./actions";
 import { SubmissionFields } from "./application-form";
 
-export function StatusForm({ id, revision, current, idem }: { id: string; revision: number; current: Status; idem: string }) {
+export function StatusForm({
+  id,
+  revision,
+  current,
+  idem,
+  onSaved,
+}: {
+  id: string;
+  revision: number;
+  current: Status;
+  idem: string;
+  onSaved?: () => void;
+}) {
   const [state, action] = useActionState<FormState, FormData>(changeStatusAction, {});
+  useEffect(() => {
+    if (state.status === "ok") onSaved?.();
+  }, [state, onSaved]);
   const [next, setNext] = useState<Status>(current);
   const move = canMoveTo(current, next);
   const needsSubmission = !isSubmittedStatus(current) && isSubmittedStatus(next);
@@ -60,12 +75,15 @@ export function StatusForm({ id, revision, current, idem }: { id: string; revisi
   );
 }
 
-export function NoteForm({ applicationId }: { applicationId: string }) {
+export function NoteForm({ applicationId, onSaved }: { applicationId: string; onSaved?: () => void }) {
   const [state, action] = useActionState<FormState, FormData>(addNoteAction, {});
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
-    if (state.status === "ok") ref.current?.reset();
-  }, [state]);
+    if (state.status === "ok") {
+      ref.current?.reset();
+      onSaved?.();
+    }
+  }, [state, onSaved]);
   return (
     <form ref={ref} action={action} className="grid gap-2">
       <FormAlert state={state} />

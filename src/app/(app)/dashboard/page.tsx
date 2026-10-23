@@ -55,7 +55,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     ),
     fetchAll<{ application_id: string }>(supabase, "offer_events", "id", "application_id"),
     fetchAll<{ application_id: string }>(supabase, "interview_events", "id", "application_id"),
-    fetchAll<{ application_id: string; new_status: string }>(supabase, "application_status_events", "id", "application_id,new_status"),
+    fetchAll<{
+      application_id: string;
+      new_status: string;
+      effective_at: string | null;
+      effective_at_unknown: boolean;
+      recorded_at: string;
+    }>(supabase, "application_status_events", "recorded_at", "application_id,new_status,effective_at,effective_at_unknown,recorded_at"),
     fetchAll<Task>(supabase, "tasks"),
     loadPractice(supabase, tz, profile.weekly_practice_goal, now),
     loadFeed(
@@ -139,6 +145,121 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     ghosted: "bg-zinc-500",
   };
   const segments = STATUSES.filter((st) => st !== "saved" && st !== "prepared" && pipeline[st] > 0);
+  const focusStatuses: Status[] = ["screening", "assessment", "interview", "offer"];
+  const applicationsToWatch = focusStatuses.map((status) => ({
+    status,
+    count: cohortApps.filter((app) => !app.archived_at && app.status === status).length,
+    apps: cohortApps
+      .filter((app) => !app.archived_at && app.status === status)
+      .slice(0, 3),
+  }));
+
+  const progressRank: Partial<Record<Status, number>> = {
+    applied: 1,
+    screening: 2,
+    assessment: 3,
+    interview: 4,
+    offer: 5,
+    accepted: 6,
+  };
+  const progressLabel: Record<number, string> = {
+    1: "Application submitted",
+    2: "Screening",
+    3: "Assessment",
+    4: "Interview",
+    5: "Offer",
+    6: "Offer accepted",
+  };
+  const furthestByApplication = new Map<string, Status>();
+  const considerProgress = (id: string, rawStatus: string) => {
+    if (!STATUSES.includes(rawStatus as Status)) return;
+    const status = rawStatus as Status;
+    const rank = progressRank[status] ?? 0;
+    const currentRank = progressRank[furthestByApplication.get(id) ?? "saved"] ?? 0;
+    if (rank > currentRank) furthestByApplication.set(id, status);
+  };
+  for (const app of apps) considerProgress(app.id, app.status);
+  for (const event of statusEvents) considerProgress(event.application_id, event.new_status);
+
+  const targetLabel = seasons.tabs.find((tab) => tab.key === targetKey)?.label ?? targetKey;
+  const targetApps = apps.filter(
+    (app) => !app.trashed_at && app.season === profile.target_season && app.season_year === profile.target_year,
+  );
+  const previousApps = apps.filter((app) => {
+    if (app.trashed_at || !app.season || app.season_year == null) return false;
+    if (app.season_year !== profile.target_year) return app.season_year < profile.target_year;
+    const seasonOrder = ["winter", "spring", "summer", "fall"];
+    return seasonOrder.indexOf(app.season) < seasonOrder.indexOf(profile.target_season);
+  });
+  const submittedApps = (rows: typeof apps) => rows.filter((app) => app.status !== "saved" && app.status !== "prepared");
+  const hasReached = (app: (typeof apps)[number], threshold: number) =>
+    (progressRank[furthestByApplication.get(app.id) ?? app.status] ?? 0) >= threshold;
+  const targetSubmitted = submittedApps(targetApps);
+  const previousSubmitted = submittedApps(previousApps);
+  const bestProgress = (rows: typeof apps) =>
+    submittedApps(rows)
+      .map((app) => ({ app, status: furthestByApplication.get(app.id) ?? app.status }))
+      .filter(({ status }) => (progressRank[status] ?? 0) > 0)
+      .sort((a, b) => (progressRank[b.status] ?? 0) - (progressRank[a.status] ?? 0))[0];
+  const targetBest = bestProgress(targetApps);
+  const previousBest = bestProgress(previousApps);
+
+  const seasonFunnel = seasons.tabs.map((season) => {
+    const seasonSubmitted = submittedApps(
+      apps.filter(
+        (app) =>
+          !app.trashed_at && app.season === season.name && app.season_year === season.year,
+      ),
+    );
+    return {
+      ...season,
+      submitted: seasonSubmitted.length,
+      stages: [
+        { label: "Screening", threshold: 2 },
+        { label: "Assessment", threshold: 3 },
+        { label: "Interview", threshold: 4 },
+        { label: "Offer", threshold: 5 },
+      ].map(({ label, threshold }) => {
+        const reached = seasonSubmitted.filter((app) => hasReached(app, threshold)).length;
+        return { label, reached, rate: seasonSubmitted.length ? Math.round((reached / seasonSubmitted.length) * 100) : 0 };
+      }),
+    };
+  });
+
+  const latestStageDate = new Map<string, string>();
+  const latestStageRecordedAt = new Map<string, string>();
+  for (const event of statusEvents) {
+    const date = !event.effective_at_unknown && event.effective_at ? event.effective_at : event.recorded_at;
+    const previousRecordedAt = latestStageRecordedAt.get(event.application_id);
+    if (!previousRecordedAt || Date.parse(event.recorded_at) >= Date.parse(previousRecordedAt)) {
+      latestStageDate.set(event.application_id, date);
+      latestStageRecordedAt.set(event.application_id, event.recorded_at);
+    }
+  }
+  const today = localDateIn(now, tz);
+  const upcomingFollowUpIds = new Set(
+    tasks
+      .filter((task) => {
+        if (task.state !== "pending" || task.kind !== "follow_up" || !task.application_id) return false;
+        if (task.due_date) return task.due_date >= today;
+        return task.due_at ? Date.parse(task.due_at) >= now.getTime() : false;
+      })
+      .map((task) => task.application_id!),
+  );
+  const needsAttention = cohortApps
+    .filter((app) => {
+      if (app.archived_at || !["applied", "screening", "assessment", "interview", "offer"].includes(app.status)) return false;
+      if (upcomingFollowUpIds.has(app.id)) return false;
+      const changedAt = latestStageDate.get(app.id);
+      return !!changedAt && now.getTime() - Date.parse(changedAt) >= 14 * 86400_000;
+    })
+    .map((app) => ({
+      app,
+      changedAt: latestStageDate.get(app.id)!,
+      days: Math.floor((now.getTime() - Date.parse(latestStageDate.get(app.id)!)) / 86400_000),
+    }))
+    .sort((a, b) => b.days - a.days)
+    .slice(0, 5);
 
   const upNext = (
     <Card>
@@ -257,6 +378,174 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           )
         }
       />
+
+      <section aria-labelledby="applications-to-watch" className="mb-6">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 id="applications-to-watch" className="text-lg font-semibold tracking-tight">Applications to watch</h2>
+            <p className="text-sm text-muted-foreground">Your active applications in later stages of the process.</p>
+          </div>
+          <Link className="text-sm underline-offset-2 hover:underline" href="/applications?layout=list">View all applications</Link>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {applicationsToWatch.map(({ status, count, apps: stageApps }) => (
+            <Card key={status} className="gap-3 py-4">
+              <CardHeader className="px-4">
+                <CardDescription>{STATUS_LABEL[status]}</CardDescription>
+                <CardTitle className="text-3xl font-light tabular-nums">{count}</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-2 px-4">
+                {stageApps.length ? (
+                  <>
+                    {stageApps.map((app) => (
+                      <Link
+                        key={app.id}
+                        href={`/applications/${app.id}`}
+                        className="min-w-0 rounded-md bg-white/5 px-3 py-2 transition-colors hover:bg-white/10"
+                      >
+                        <span className="block truncate text-sm font-medium">{app.company_name}</span>
+                        <span className="block truncate text-xs text-muted-foreground">{app.role_title}</span>
+                      </Link>
+                    ))}
+                    {count > stageApps.length && (
+                      <Link
+                        href={`/applications?status=${status}&layout=list`}
+                        className="px-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
+                      >
+                        +{count - stageApps.length} more
+                      </Link>
+                    )}
+                  </>
+                ) : (
+                  <p className="px-1 py-2 text-xs text-muted-foreground">No applications here yet.</p>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Season progress</CardTitle>
+          <CardDescription>See how far your applications have progressed compared with earlier seasons.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          {[
+            { label: targetLabel, rows: targetApps, submitted: targetSubmitted, best: targetBest },
+            { label: "Earlier seasons", rows: previousApps, submitted: previousSubmitted, best: previousBest },
+          ].map(({ label, rows, submitted: submittedRows, best }) => (
+            <div key={label} className="rounded-lg bg-white/5 p-4">
+              <h3 className="font-semibold">{label}</h3>
+              {rows.length === 0 ? (
+                <p className="mt-3 text-sm text-muted-foreground">No applications recorded yet.</p>
+              ) : (
+                <dl className="mt-3 grid grid-cols-3 gap-2">
+                  {[
+                    { label: "Submitted", value: submittedRows.length },
+                    { label: "Screening+", value: submittedRows.filter((app) => hasReached(app, 2)).length },
+                    { label: "Interview+", value: submittedRows.filter((app) => hasReached(app, 4)).length },
+                  ].map((metric) => (
+                    <div key={metric.label}>
+                      <dt className="text-xs text-muted-foreground">{metric.label}</dt>
+                      <dd className="mt-1 text-2xl font-light tabular-nums">{metric.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              {best && (
+                <p className="mt-4 border-t border-white/10 pt-3 text-sm">
+                  Furthest: <span className="font-medium">{progressLabel[progressRank[best.status] ?? 1]}</span>
+                  <span className="text-muted-foreground"> with </span>
+                  <Link className="font-medium underline-offset-2 hover:underline" href={`/applications/${best.app.id}`}>
+                    {best.app.company_name} · {best.app.role_title}
+                  </Link>
+                </p>
+              )}
+            </div>
+          ))}
+          {targetBest && previousBest && (
+            <p className="text-sm text-muted-foreground sm:col-span-2">
+              {`This season, your furthest progress is ${progressLabel[progressRank[targetBest.status] ?? 1]}. `}
+              {progressRank[targetBest.status] === progressRank[previousBest.status]
+                ? "That matches your best from earlier seasons."
+                : (progressRank[targetBest.status] ?? 0) > (progressRank[previousBest.status] ?? 0)
+                  ? "That’s further than your best in earlier seasons."
+                  : `You reached ${progressLabel[progressRank[previousBest.status] ?? 1]} in an earlier season; there’s still time to match or pass it.`}
+            </p>
+          )}
+          <div className="sm:col-span-2">
+            <h3 className="mb-1 font-semibold">Conversion by season</h3>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Share of submitted applications that reached each stage, based on status history.
+            </p>
+            {seasonFunnel.length ? (
+              <div className="overflow-x-auto rounded-md border border-white/10">
+                <table className="w-full min-w-[680px] text-sm">
+                  <thead className="bg-white/5 text-left text-xs text-muted-foreground">
+                    <tr>
+                      <th scope="col" className="px-3 py-2 font-medium">Season</th>
+                      <th scope="col" className="px-3 py-2 text-right font-medium">Submitted</th>
+                      {seasonFunnel[0].stages.map((stage) => (
+                        <th key={stage.label} scope="col" className="px-3 py-2 text-right font-medium">{stage.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/10">
+                    {seasonFunnel.map((season) => (
+                      <tr key={season.key}>
+                        <th scope="row" className="whitespace-nowrap px-3 py-2 text-left font-medium">{season.label}</th>
+                        <td className="px-3 py-2 text-right tabular-nums">{season.submitted}</td>
+                        {season.stages.map((stage) => (
+                          <td key={stage.label} className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
+                            {season.submitted ? `${stage.reached} · ${stage.rate}%` : "—"}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Add a season to start comparing conversion rates.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Applications needing attention</CardTitle>
+          <CardDescription>
+            Active applications with no status update in 14 days and no upcoming follow-up reminder.
+          </CardDescription>
+          <CreateFollowUp
+            apps={needsAttention.map(({ app }) => ({ id: app.id, label: `${app.company_name} — ${app.role_title}` }))}
+            today={today}
+          />
+        </CardHeader>
+        <CardContent className="grid gap-2">
+          {needsAttention.length ? (
+            needsAttention.map(({ app, changedAt, days }) => (
+              <Link
+                key={app.id}
+                href={`/applications/${app.id}`}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-white/5 p-3 transition-colors hover:bg-white/10"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium">{app.company_name} · {app.role_title}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {STATUS_LABEL[app.status]} · unchanged since {fmtInstant(changedAt, tz)}
+                  </span>
+                </span>
+                <Badge variant="outline">{days} days</Badge>
+              </Link>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">Nothing is waiting without a follow-up right now.</p>
+          )}
+        </CardContent>
+      </Card>
 
       {apps.length === 0 ? (
         <>

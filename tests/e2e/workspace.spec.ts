@@ -21,7 +21,9 @@ test("create a prepared application, attest submission, add a follow-up, export"
   await page.getByLabel(/^Company/).fill(company);
   await page.getByLabel(/^Role title/).fill("Software Engineering Intern");
   await page.getByLabel("Status", { exact: true }).selectOption("prepared");
-  await page.getByRole("button", { name: /add application/i }).click();
+  await page.getByRole("button", { name: /save application/i }).click();
+  await expect(page.getByText(`Application saved for ${company}.`)).toBeVisible();
+  await page.getByRole("link", { name: "View application", exact: true }).click();
   await expect(page.getByRole("heading", { name: new RegExp(company) })).toBeVisible();
   await expect(page.getByText("Not submitted").first()).toBeVisible();
 
@@ -48,7 +50,8 @@ test("new entries default to Applied with an editable date and applications can 
   await page.getByLabel("Submitted on").fill("2026-10-09");
   await page.getByLabel(/^Company/).fill(`Default application ${Date.now()}`);
   await page.getByLabel(/^Role title/).fill("SWE Intern");
-  await page.getByRole("button", { name: /add application/i }).click();
+  await page.getByRole("button", { name: /save application/i }).click();
+  await page.getByRole("link", { name: "View application", exact: true }).click();
   await page.waitForURL(/\/applications\/[0-9a-f-]+$/);
   await page.goto("/applications?season=all&layout=board");
   await page.getByRole("button", { name: "Refresh", exact: true }).click();

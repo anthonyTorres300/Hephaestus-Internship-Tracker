@@ -8,7 +8,7 @@ import { ApplicationForm, type FormInitial } from "../application-form";
 export const metadata = { title: "New application" };
 
 export default async function NewApplication({ searchParams }: { searchParams: Promise<{ job?: string }> }) {
-  const { supabase, profile } = await requireWorkspace();
+  const { supabase, profile, user } = await requireWorkspace();
   const sp = await searchParams;
   const seasons = await loadSeasons(supabase, { season: profile.target_season, year: profile.target_year });
 
@@ -53,6 +53,8 @@ export default async function NewApplication({ searchParams }: { searchParams: P
       <div className="max-w-3xl">
         <ApplicationForm
           mode="create"
+          draftScope={user.id}
+          timezone={profile.timezone}
           initial={initial}
           idem={randomUUID()}
           seasons={seasons.tabs.map((t) => ({ key: t.key, label: t.label }))}

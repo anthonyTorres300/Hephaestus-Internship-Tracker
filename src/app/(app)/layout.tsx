@@ -1,3 +1,5 @@
+import { QuickLogProvider } from "@/components/applications/quick-log";
+import { loadSeasons } from "@/lib/data/seasons";
 import { displayName } from "@/lib/auth/display-name";
 import { Suspense } from "react";
 import { ToastProvider } from "@/components/feedback/toast";
@@ -15,27 +17,37 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isAdmin, profile, supabase } = await requireWorkspace();
+  const seasons = await loadSeasons(supabase, { season: profile.target_season, year: profile.target_year });
   return (
     <ToastProvider>
-      <AppShell
-        name={displayName(user) ?? "Account"}
-        email={user.email ?? ""}
-        isAdmin={isAdmin}
-        logout={
-          <form action={logoutAction}>
-            <Button type="submit" variant="ghost" size="sm">
-              Log out
-            </Button>
-          </form>
-        }
+      <QuickLogProvider
+        key={user.id}
+        userId={user.id}
+        timezone={profile.timezone}
+        season={profile.target_season}
+        year={profile.target_year}
+        seasons={seasons.tabs.map((tab) => ({ key: tab.key, label: tab.label }))}
       >
-        <TimezoneSync confirmed={profile.timezone_confirmed} />
-        <Shortcuts />
-        <Suspense fallback={null}>
-          <AutoRefreshGate supabase={supabase} />
-        </Suspense>
-        {children}
-      </AppShell>
+        <AppShell
+          name={displayName(user) ?? "Account"}
+          email={user.email ?? ""}
+          isAdmin={isAdmin}
+          logout={
+            <form action={logoutAction}>
+              <Button type="submit" variant="ghost" size="sm">
+                Log out
+              </Button>
+            </form>
+          }
+        >
+          <TimezoneSync confirmed={profile.timezone_confirmed} />
+          <Shortcuts />
+          <Suspense fallback={null}>
+            <AutoRefreshGate supabase={supabase} />
+          </Suspense>
+          {children}
+        </AppShell>
+      </QuickLogProvider>
     </ToastProvider>
   );
 }

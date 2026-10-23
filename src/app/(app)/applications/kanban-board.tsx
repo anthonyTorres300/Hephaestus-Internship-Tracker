@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ApplicationDrawer } from "@/components/applications/application-drawer";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ interface Pending {
 }
 
 export function KanbanBoard({ apps, truncated }: { apps: BoardApp[]; truncated: boolean }) {
+  const [drawerId, setDrawerId] = useState<string | null>(null);
   const [cards, setCards] = useState(apps);
   const [dragId, setDragId] = useState<string | null>(null);
   const [over, setOver] = useState<Status | null>(null);
@@ -106,6 +108,7 @@ export function KanbanBoard({ apps, truncated }: { apps: BoardApp[]; truncated: 
 
   return (
     <div className="grid gap-3">
+      <ApplicationDrawer key={drawerId ?? "closed"} id={drawerId} onClose={() => setDrawerId(null)} />
       <p className="text-xs text-muted-foreground">
         Drag a card to another column, or use the “Move to” menu on a card. Moves use the same rules as the status form and are saved right
         away.
@@ -185,6 +188,12 @@ export function KanbanBoard({ apps, truncated }: { apps: BoardApp[]; truncated: 
                     >
                       <Link
                         href={`/applications/${c.id}`}
+                        onClick={(event) => {
+                          if (!event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+                            event.preventDefault();
+                            setDrawerId(c.id);
+                          }
+                        }}
                         draggable={false}
                         className="block font-semibold underline-offset-2 outline-none after:absolute after:inset-0 hover:underline focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
                       >

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ApplyLink, useQuickLog } from "@/components/applications/quick-log";
 import { useState, useRef } from "react";
 import { Bookmark, EyeOff, Plus } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -20,14 +21,19 @@ export function JobActions({
   hidden,
   applyUrl,
   applicationId,
+  company,
+  role,
 }: {
   jobId: string;
   saved: boolean;
   hidden: boolean;
   applyUrl: string | null;
   applicationId?: string | null;
+  company?: string;
+  role?: string;
 }) {
   const toast = useToast();
+  const workflow = useQuickLog();
   const [isSaved, setSaved] = useState(saved);
   const [isHidden, setHidden] = useState(hidden);
   const [busy, setBusy] = useState(false);
@@ -102,6 +108,12 @@ export function JobActions({
       </Button>
       <Link
         href={applicationId ? `/applications/${applicationId}` : `/applications/new?job=${jobId}`}
+        onClick={(event) => {
+          if (!applicationId && workflow && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+            event.preventDefault();
+            workflow.open({ company_name: company, role_title: role, application_url: applyUrl, job_id: jobId });
+          }
+        }}
         className={buttonVariants({ size: "sm", variant: "outline", className: "min-h-11 px-3" })}
       >
         <Plus aria-hidden /> {applicationId ? "View application" : "Log application"}
@@ -112,14 +124,18 @@ export function JobActions({
         </span>
       ) : null}
       {applyUrl ? (
-        <a
-          href={applyUrl}
-          target="_blank"
-          rel="noopener noreferrer nofollow"
+        <ApplyLink
+          intent={{
+            application_url: applyUrl,
+            company_name: company,
+            role_title: role,
+            job_id: jobId,
+            applicationId: applicationId ?? undefined,
+          }}
           className={buttonVariants({ size: "sm", className: "min-h-11 px-4" })}
         >
-          Apply<span className="sr-only"> (opens in a new tab)</span>
-        </a>
+          Apply
+        </ApplyLink>
       ) : null}
     </div>
   );

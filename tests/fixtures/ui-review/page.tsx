@@ -1,4 +1,7 @@
 // Synthetic UI fixture installed temporarily by scripts/ui-review.ts; never deployed.
+import { QuickLogProvider } from "@/components/applications/quick-log";
+import { Shortcuts } from "@/components/layout/shortcuts";
+import type { ApplicationSaveState } from "@/lib/applications/types";
 import { AppShell } from "@/components/layout/app-shell";
 import { ToastProvider } from "@/components/feedback/toast";
 import { PageHeader } from "@/components/layout/page-header";
@@ -15,6 +18,12 @@ import { LogAttemptDialog } from "@/app/(app)/practice/log-attempt-dialog";
 import { notFound } from "next/navigation";
 import type { FeedItem } from "@/lib/jobs/feed";
 
+async function reviewSave(_: ApplicationSaveState, fd: FormData): Promise<ApplicationSaveState> {
+  "use server";
+  if (process.env.NODE_ENV !== "development") notFound();
+  if (!String(fd.get("company_name") ?? "").trim() || !String(fd.get("role_title") ?? "").trim()) return { status: "error", message: "Company and role are required." };
+  return { status: "ok", message: "Application saved.", applicationId: "00000000-0000-4000-8000-000000000001" };
+}
 export default async function Review({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
   if (process.env.NODE_ENV !== "development") notFound();
   const view = (await searchParams).view;
@@ -55,7 +64,9 @@ export default async function Review({ searchParams }: { searchParams: Promise<{
   };
   return (
     <ToastProvider>
+      <QuickLogProvider userId="review-user" timezone="America/Puerto_Rico" season="summer" year={2027} seasons={[{ key: "summer:2027", label: "Summer 2027" }]} saveAction={reviewSave}>
       <AppShell name="Example" email="example@example.test" isAdmin={false} logout={<button>Log out</button>}>
+        <Shortcuts />
         <PageHeader
           title={view === "practice" ? "Practice" : view === "new" ? "New application" : view === "jobs" ? "Jobs" : "Applications"}
           description="Local layout review with synthetic data."
@@ -112,13 +123,14 @@ export default async function Review({ searchParams }: { searchParams: Promise<{
         ) : view === "new" ? (
           <ApplicationForm
             mode="create"
-            idem="review-idem"
+            idem="review-idem" draftScope="review-user" timezone="America/Puerto_Rico" saveAction={reviewSave}
             initial={{ status: "applied", submitted_precision: "day", submitted_year: 2026, submitted_month: 10, submitted_day: 13 }}
           />
         ) : (
           <ApplicationsList apps={apps} today="2026-10-13" seasons={[]} canBulk sort="updated_at" dir="desc" sortHrefs={{ company_name: "/ui-review", status: "/ui-review", submitted_key: "/ui-review", priority: "/ui-review" }} />
         )}
       </AppShell>
+      </QuickLogProvider>
     </ToastProvider>
   );
 }

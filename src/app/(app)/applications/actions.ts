@@ -18,6 +18,8 @@ import {
 } from "@/lib/validation/application";
 import { PRIORITIES, STATUSES, STATUS_LABEL, isSubmittedStatus, isValidTimezone, localDateIn, type Status } from "@/lib/domain";
 import { normalizeSeasonName, seasonKey } from "@/lib/data/seasons";
+import { findApplicationDuplicates } from "@/lib/applications/duplicates";
+import type { ApplicationSaveState } from "@/lib/applications/types";
 import type { FormState } from "@/components/forms/fields";
 
 const fail = (message: string, raw?: Record<string, string | string[]>, fields?: Record<string, string[]>): FormState => ({
@@ -39,6 +41,16 @@ const dbFail = (e: { code?: string; message?: string }, raw?: Record<string, str
 };
 
 export async function createApplicationAction(_: FormState, fd: FormData): Promise<FormState> {
+  const result = await persistApplication(fd, false);
+  if (result.applicationId) redirect(`/applications/${result.applicationId}`);
+  return result;
+}
+
+export async function saveApplicationAction(_: ApplicationSaveState, fd: FormData): Promise<ApplicationSaveState> {
+  return persistApplication(fd, true);
+}
+
+async function persistApplication(fd: FormData, checkDuplicates: boolean): Promise<ApplicationSaveState> {
   const { supabase, profile } = await requireWorkspace();
   const raw = formToObject(fd);
   raw.status ||= "applied";
@@ -56,6 +68,21 @@ export async function createApplicationAction(_: FormState, fd: FormData): Promi
     if (s.error) return fail(s.error, raw, { submitted_day: [s.error] });
     submission = s.value!;
   }
+  if (checkDuplicates && fd.get("allow_duplicate") !== "on") {
+    let duplicates;
+    try {
+      duplicates = await findApplicationDuplicates(supabase, d);
+    } catch {
+      return fail("Could not check existing applications. Try again.", raw);
+    }
+    if (duplicates.length)
+      return {
+        status: "error",
+        message: "This application may already be logged. Open the existing record or confirm a separate entry.",
+        duplicates,
+        values: stringValues(raw),
+      };
+  }
   const { company_name, role_title, ...rest } = d;
   const { data, error } = await supabase.rpc("create_application", {
     p: { ...rest, company_name, role_title, ...submission, origin: d.job_id ? "job" : "manual" },
@@ -63,7 +90,9 @@ export async function createApplicationAction(_: FormState, fd: FormData): Promi
   });
   if (error) return dbFail(error, raw);
   revalidatePath("/applications");
-  redirect(`/applications/${(data as { id: string }).id}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/jobs");
+  return { status: "ok", message: "Application saved.", applicationId: (data as { id: string }).id };
 }
 
 export async function updateApplicationAction(_: FormState, fd: FormData): Promise<FormState> {
@@ -510,4 +539,27 @@ export async function deleteSeasonAction(input: { name: string; year: number }):
   if (error) return { ok: false, message: "Could not remove the season." };
   revalidatePath("/applications");
   return { ok: true };
+}
+
+export async function confirmSubmissionAction(_: ApplicationSaveState, fd: FormData): Promise<ApplicationSaveState> {
+  const { supabase, profile } = await requireWorkspace();
+  const id = String(fd.get("application_id") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(id) || fd.get("attested") !== "on") return fail("Confirm that you submitted this application.");
+  const day = String(fd.get("submitted_day") ?? localDateIn(new Date(), profile.timezone));
+  const date = parseSubmission("day", day, undefined);
+  if (date.error) return fail(date.error);
+  const { data: app } = await supabase.from("applications").select("id,status,revision,trashed_at").eq("id", id).maybeSingle();
+  if (!app || app.trashed_at) return fail("Application not found.");
+  if (isSubmittedStatus(app.status))
+    return { status: "ok", message: "This application is already recorded as submitted.", applicationId: id };
+  const result = await moveStatusAction({
+    id,
+    revision: app.revision,
+    status: "applied",
+    idem: String(fd.get("idem")),
+    attested: true,
+    date_known: "day",
+    submitted_day: day,
+  });
+  return result.ok ? { status: "ok", message: "Submission recorded.", applicationId: id } : fail(result.message);
 }

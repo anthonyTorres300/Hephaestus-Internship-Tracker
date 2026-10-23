@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useQuickLog } from "@/components/applications/quick-log";
 
 // "/" focuses the page's search box; "n" starts a new application. Ignored while typing or when a modifier key is held.
 export function Shortcuts() {
-  const router = useRouter();
+  const workflow = useQuickLog();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
@@ -21,11 +21,11 @@ export function Shortcuts() {
         }
       } else if (e.key === "n") {
         e.preventDefault();
-        router.push("/applications/new");
+        workflow?.open();
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [router]);
+  }, [workflow]);
   return null;
 }
